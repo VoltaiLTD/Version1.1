@@ -31,7 +31,7 @@ export class OpenAIFinancialAssistant {
     return OpenAIFinancialAssistant.instance;
   }
 
-  private handleAPIError(error: any): void {
+  private handleAPIError(error: any): never {
     if (error?.status === 429) {
       throw new Error('OpenAI API quota exceeded. Please check your billing and usage at platform.openai.com');
     } else if (error?.status === 401) {
@@ -78,7 +78,6 @@ export class OpenAIFinancialAssistant {
     } catch (error) {
       console.error('Error analyzing spending patterns:', error);
       this.handleAPIError(error);
-      return this.getFallbackInsights();
     }
   }
 
@@ -115,7 +114,6 @@ export class OpenAIFinancialAssistant {
     } catch (error) {
       console.error('Error getting spending limit recommendation:', error);
       this.handleAPIError(error);
-      return this.getFallbackSpendingLimit(data);
     }
   }
 
@@ -152,7 +150,6 @@ export class OpenAIFinancialAssistant {
     } catch (error) {
       console.error('Error generating financial profile:', error);
       this.handleAPIError(error);
-      return this.getFallbackFinancialProfile(data);
     }
   }
 
@@ -185,7 +182,6 @@ export class OpenAIFinancialAssistant {
     } catch (error) {
       console.error('Error in chat:', error);
       this.handleAPIError(error);
-      return "I'm experiencing some technical difficulties. Please try again later.";
     }
   }
 

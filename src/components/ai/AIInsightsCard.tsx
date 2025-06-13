@@ -12,6 +12,7 @@ const AIInsightsCard: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [lastAnalyzed, setLastAnalyzed] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [usingFallback, setUsingFallback] = useState(false);
 
   const getInsightIcon = (type: string) => {
     switch (type) {
@@ -48,6 +49,8 @@ const AIInsightsCard: React.FC = () => {
 
     setIsLoading(true);
     setError(null);
+    setUsingFallback(false);
+    
     try {
       const analysisData = {
         transactions,
@@ -62,31 +65,40 @@ const AIInsightsCard: React.FC = () => {
     } catch (error: any) {
       console.error('Error analyzing financial data:', error);
       setError(error.message || 'Failed to analyze financial data');
+      setUsingFallback(true);
       
-      // If it's a quota error, still show fallback insights
-      if (error.message?.includes('quota exceeded')) {
-        const fallbackInsights = [
-          {
-            id: 'fallback-1',
-            type: 'spending_pattern' as const,
-            title: 'Review Your Spending Categories',
-            description: 'Consider tracking your expenses more closely to identify areas for potential savings.',
-            confidence: 0.7,
-            actionable: true,
-            createdAt: new Date()
-          },
-          {
-            id: 'fallback-2',
-            type: 'budget_recommendation' as const,
-            title: 'Set Monthly Budget Goals',
-            description: 'Based on your transaction history, consider setting specific budget limits for each spending category.',
-            confidence: 0.8,
-            actionable: true,
-            createdAt: new Date()
-          }
-        ];
-        setInsights(fallbackInsights);
-      }
+      // Always show fallback insights when there's an error
+      const fallbackInsights = [
+        {
+          id: 'fallback-1',
+          type: 'spending_pattern' as const,
+          title: 'Review Your Spending Categories',
+          description: 'Consider tracking your expenses more closely to identify areas for potential savings.',
+          confidence: 0.7,
+          actionable: true,
+          createdAt: new Date()
+        },
+        {
+          id: 'fallback-2',
+          type: 'budget_recommendation' as const,
+          title: 'Set Monthly Budget Goals',
+          description: 'Based on your transaction history, consider setting specific budget limits for each spending category.',
+          confidence: 0.8,
+          actionable: true,
+          createdAt: new Date()
+        },
+        {
+          id: 'fallback-3',
+          type: 'savings_opportunity' as const,
+          title: 'Emergency Fund Building',
+          description: 'Aim to save at least 3-6 months of expenses in an emergency fund for financial security.',
+          confidence: 0.9,
+          actionable: true,
+          createdAt: new Date()
+        }
+      ];
+      setInsights(fallbackInsights);
+      setLastAnalyzed(new Date());
     } finally {
       setIsLoading(false);
     }
@@ -194,7 +206,7 @@ const AIInsightsCard: React.FC = () => {
           {lastAnalyzed && (
             <div className="text-xs text-neutral-500 text-center pt-4 border-t border-neutral-200">
               Last analyzed: {lastAnalyzed.toLocaleString()}
-              {error && (
+              {usingFallback && (
                 <span className="block mt-1 text-amber-600">
                   (Using fallback insights due to API limitations)
                 </span>
