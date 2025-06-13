@@ -1,12 +1,12 @@
 import React from 'react';
-import { BatteryMedium, Menu, Bell, Zap, ShoppingCart } from 'lucide-react';
+import { BatteryMedium, Menu, Bell, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import Button from '../ui/Button';
 import SyncStatus from '../wallet/SyncStatus';
 
 const Header: React.FC = () => {
-  const { user, isAuthenticated, logout, subscription } = useApp();
+  const { user, isAuthenticated, logout } = useApp();
   
   return (
     <header className="bg-white shadow-sm py-4">
@@ -23,13 +23,6 @@ const Header: React.FC = () => {
             <SyncStatus />
             
             <div className="hidden md:flex items-center space-x-4">
-              <Link to="/products">
-                <Button variant="outline" size="sm">
-                  <ShoppingCart className="h-4 w-4 mr-2" />
-                  Products
-                </Button>
-              </Link>
-
               <div className="relative">
                 <Bell className="h-5 w-5 text-neutral-600 cursor-pointer hover:text-primary-500" />
                 <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent-500 text-white text-xs flex items-center justify-center">
@@ -55,11 +48,6 @@ const Header: React.FC = () => {
                 ) : (
                   <div className="h-8 w-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold">
                     {user?.name.charAt(0)}
-                  </div>
-                )}
-                {subscription && (
-                  <div className="text-xs text-success-600 font-medium">
-                    {subscription.subscription_status === 'active' ? 'Premium' : 'Free'}
                   </div>
                 )}
               </div>
