@@ -1,5 +1,6 @@
 import React from 'react';
-import { Settings, Shield, Bell } from 'lucide-react';
+import { Settings, Shield, Bell, DollarSign } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useApp } from '../../context/AppContext';
 import Card from '../ui/Card';
 import Button from '../ui/Button';
@@ -43,18 +44,30 @@ const ProfileCard: React.FC = () => {
         <div className="border-t border-neutral-200 pt-4">
           <h4 className="font-medium text-neutral-800 mb-3">Quick Actions</h4>
           <div className="space-y-2">
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Settings className="h-4 w-4 mr-2" />
-              Account Settings
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Shield className="h-4 w-4 mr-2" />
-              Security & Privacy
-            </Button>
-            <Button variant="outline" size="sm" className="w-full justify-start">
-              <Bell className="h-4 w-4 mr-2" />
-              Notifications
-            </Button>
+            <Link to="/settings/account">
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <Settings className="h-4 w-4 mr-2" />
+                Account Settings
+              </Button>
+            </Link>
+            <Link to="/settings/security">
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <Shield className="h-4 w-4 mr-2" />
+                Security & Privacy
+              </Button>
+            </Link>
+            <Link to="/settings/notifications">
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <Bell className="h-4 w-4 mr-2" />
+                Notifications
+              </Button>
+            </Link>
+            <Link to="/settings/limits">
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <DollarSign className="h-4 w-4 mr-2" />
+                Transfer Limits
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

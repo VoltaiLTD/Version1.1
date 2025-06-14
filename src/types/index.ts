@@ -5,6 +5,37 @@ export interface User {
   avatarUrl?: string;
   publicKey: string;
   privateKey: string;
+  phone?: string;
+  address?: string;
+  dateOfBirth?: string;
+  occupation?: string;
+  bio?: string;
+  
+  // Security settings
+  twoFactorEnabled?: boolean;
+  biometricEnabled?: boolean;
+  loginNotifications?: boolean;
+  dataSharing?: boolean;
+  
+  // Notification preferences
+  transactionAlerts?: boolean;
+  largeTransactionAlerts?: boolean;
+  lowBalanceAlerts?: boolean;
+  loginAlerts?: boolean;
+  securityAlerts?: boolean;
+  aiInsights?: boolean;
+  spendingReports?: boolean;
+  budgetAlerts?: boolean;
+  promotionalEmails?: boolean;
+  productUpdates?: boolean;
+  emailNotifications?: boolean;
+  pushNotifications?: boolean;
+  smsNotifications?: boolean;
+  
+  // Transfer limits
+  dailyOnlineLimit?: number;
+  monthlyLimit?: number;
+  singleTransactionLimit?: number;
 }
 
 export interface BankAccount {

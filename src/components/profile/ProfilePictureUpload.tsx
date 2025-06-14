@@ -40,8 +40,10 @@ const ProfilePictureUpload: React.FC = () => {
 
     setIsUploading(true);
     try {
-      // In a real app, you would upload to a service like Supabase Storage
-      // For demo purposes, we'll just update the user profile with the preview URL
+      // Store the image data in localStorage for persistence
+      localStorage.setItem('volt_user_avatar', previewUrl);
+      
+      // Update user profile with the preview URL
       await updateUserProfile({ avatarUrl: previewUrl });
       setShowUploadModal(false);
       setPreviewUrl(null);
@@ -55,6 +57,10 @@ const ProfilePictureUpload: React.FC = () => {
 
   const handleRemovePhoto = async () => {
     try {
+      // Remove from localStorage
+      localStorage.removeItem('volt_user_avatar');
+      
+      // Update user profile
       await updateUserProfile({ avatarUrl: undefined });
     } catch (error) {
       console.error('Error removing profile picture:', error);

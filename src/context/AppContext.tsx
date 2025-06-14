@@ -40,9 +40,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   
   const [offlineSettings, setOfflineSettings] = useState<OfflineSettings>({
     enabled: true,
-    spendingLimit: 200,
+    spendingLimit: 200000,
     warningThreshold: 80,
-    aiSuggestedLimit: 150,
+    aiSuggestedLimit: 150000,
     requireSignature: false,
     allowedPaymentMethods: ['qr', 'nfc', 'manual'],
   });
@@ -72,14 +72,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  // Load saved profile picture on mount
+  useEffect(() => {
+    const savedAvatar = localStorage.getItem('volt_user_avatar');
+    if (savedAvatar && user) {
+      setUser(prev => prev ? { ...prev, avatarUrl: savedAvatar } : null);
+    }
+  }, [isAuthenticated]);
+
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setIsAuthenticated(true);
-        // Initialize with mock data for demo
-        setUser(mockUser);
+        
+        // Load saved avatar from localStorage
+        const savedAvatar = localStorage.getItem('volt_user_avatar');
+        const userWithAvatar = savedAvatar ? { ...mockUser, avatarUrl: savedAvatar } : mockUser;
+        
+        setUser(userWithAvatar);
         setAccounts(mockAccounts);
         setTransactions(mockTransactions);
         setCurrentAccountState(mockAccounts[0]);
@@ -100,8 +112,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         setIsAuthenticated(true);
-        // Initialize with mock data for demo
-        setUser(mockUser);
+        
+        // Load saved avatar from localStorage
+        const savedAvatar = localStorage.getItem('volt_user_avatar');
+        const userWithAvatar = savedAvatar ? { ...mockUser, avatarUrl: savedAvatar } : mockUser;
+        
+        setUser(userWithAvatar);
         setAccounts(mockAccounts);
         setTransactions(mockTransactions);
         setCurrentAccountState(mockAccounts[0]);
@@ -177,10 +193,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
     
     try {
-      // In a real app, you would update the user profile in the database
-      // For demo purposes, we'll just update the local state
+      // Update local state
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
+      
+      // If avatar is being updated, save to localStorage for persistence
+      if (updates.avatarUrl !== undefined) {
+        if (updates.avatarUrl) {
+          localStorage.setItem('volt_user_avatar', updates.avatarUrl);
+        } else {
+          localStorage.removeItem('volt_user_avatar');
+        }
+      }
+      
+      // In a real app, you would also update the user profile in the database
+      // For now, we'll just update the local state
     } catch (error) {
       console.error('Error updating user profile:', error);
       throw error;
