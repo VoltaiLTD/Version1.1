@@ -25,6 +25,7 @@ interface AppContextType {
   updateOfflineSettings: (settings: Partial<OfflineSettings>) => void;
   makeOfflineTransaction: (amount: number, description: string, category: string) => Promise<void>;
   fetchSubscription: () => Promise<void>;
+  updateUserProfile: (updates: Partial<User>) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -171,6 +172,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('Error fetching subscription:', error);
     }
   };
+
+  const updateUserProfile = async (updates: Partial<User>) => {
+    if (!user) return;
+    
+    try {
+      // In a real app, you would update the user profile in the database
+      // For demo purposes, we'll just update the local state
+      const updatedUser = { ...user, ...updates };
+      setUser(updatedUser);
+    } catch (error) {
+      console.error('Error updating user profile:', error);
+      throw error;
+    }
+  };
   
   const syncData = async () => {
     // In a real app, this would sync with backend
@@ -257,6 +272,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateOfflineSettings,
     makeOfflineTransaction,
     fetchSubscription,
+    updateUserProfile,
   };
   
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

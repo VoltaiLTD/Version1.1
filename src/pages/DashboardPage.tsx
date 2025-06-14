@@ -15,6 +15,7 @@ import ReferralCard from '../components/features/ReferralCard';
 import AIInsightsCard from '../components/ai/AIInsightsCard';
 import AIAssistantChat from '../components/ai/AIAssistantChat';
 import BankConnectionCard from '../components/ai/BankConnectionCard';
+import ProfileCard from '../components/profile/ProfileCard';
 import Card from '../components/ui/Card';
 
 const DashboardPage: React.FC = () => {
@@ -37,6 +38,7 @@ const DashboardPage: React.FC = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
           {/* Left column */}
           <div className="lg:col-span-3 space-y-6">
+            <ProfileCard />
             <AccountSelector />
             <OfflineLimitCard />
             <div className="space-y-3">
