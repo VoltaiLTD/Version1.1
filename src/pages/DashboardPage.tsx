@@ -16,6 +16,7 @@ import AIInsightsCard from '../components/ai/AIInsightsCard';
 import AIAssistantChat from '../components/ai/AIAssistantChat';
 import BankConnectionCard from '../components/ai/BankConnectionCard';
 import ProfileCard from '../components/profile/ProfileCard';
+import StripeProductsSection from '../components/stripe/StripeProductsSection';
 import Card from '../components/ui/Card';
 
 const DashboardPage: React.FC = () => {
@@ -55,6 +56,7 @@ const DashboardPage: React.FC = () => {
           <div className="lg:col-span-5 space-y-6">
             <TransactionsList />
             <AIInsightsCard />
+            <StripeProductsSection />
           </div>
 
           {/* Right column - Features */}

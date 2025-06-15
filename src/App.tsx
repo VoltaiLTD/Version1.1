@@ -8,6 +8,7 @@ import AccountSettingsPage from './pages/AccountSettingsPage';
 import SecurityPrivacyPage from './pages/SecurityPrivacyPage';
 import NotificationsPage from './pages/NotificationsPage';
 import TransferLimitsPage from './pages/TransferLimitsPage';
+import SuccessPage from './pages/SuccessPage';
 
 function App() {
   const { isAuthenticated } = useApp();
@@ -21,6 +22,7 @@ function App() {
       <Route path="/settings/security" element={isAuthenticated ? <SecurityPrivacyPage /> : <Navigate to="/" />} />
       <Route path="/settings/notifications" element={isAuthenticated ? <NotificationsPage /> : <Navigate to="/" />} />
       <Route path="/settings/limits" element={isAuthenticated ? <TransferLimitsPage /> : <Navigate to="/" />} />
+      <Route path="/success" element={<SuccessPage />} />
       <Route path="*" element={<Navigate to="/" />} />
     </Routes>
   );
