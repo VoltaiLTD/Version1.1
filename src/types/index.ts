@@ -5,6 +5,7 @@ export interface User {
   avatarUrl?: string;
   publicKey: string;
   privateKey: string;
+  voltTag?: string; // Unique Volt tag for the user
   phone?: string;
   address?: string;
   dateOfBirth?: string;
@@ -61,9 +62,11 @@ export interface Transaction {
   signature?: string;
   recipientId?: string;
   recipientPublicKey?: string;
-  paymentMethod?: 'qr' | 'nfc' | 'manual';
+  paymentMethod?: 'qr' | 'nfc' | 'manual' | 'volt_tag' | 'bank_transfer';
   merchant?: string;
   location?: string;
+  voltTag?: string; // Volt tag used for the transaction
+  temporaryBankAccount?: string; // Temporary bank account used
 }
 
 export interface OfflineSettings {
@@ -72,7 +75,7 @@ export interface OfflineSettings {
   warningThreshold: number;
   aiSuggestedLimit?: number;
   requireSignature: boolean;
-  allowedPaymentMethods: ('qr' | 'nfc' | 'manual')[];
+  allowedPaymentMethods: ('qr' | 'nfc' | 'manual' | 'volt_tag' | 'bank_transfer')[];
 }
 
 export interface SyncStatus {
@@ -151,4 +154,42 @@ export interface BankAuthRequest {
   accountTypes: string[];
   permissions: string[];
   redirectUrl: string;
+}
+
+export interface VoltTag {
+  id: string;
+  userId: string;
+  tag: string;
+  isActive: boolean;
+  createdAt: Date;
+  lastUsed?: Date;
+}
+
+export interface TemporaryBankAccount {
+  id: string;
+  userId: string;
+  accountNumber: string;
+  bankName: string;
+  accountName: string;
+  expiresAt: Date;
+  isActive: boolean;
+  createdAt: Date;
+  usedAt?: Date;
+  amount?: number;
+  purpose: string;
+}
+
+export interface MoneyTransfer {
+  id: string;
+  fromUserId: string;
+  toUserId?: string;
+  amount: number;
+  description: string;
+  method: 'volt_tag' | 'bank_transfer';
+  status: 'pending' | 'completed' | 'failed' | 'expired';
+  voltTag?: string;
+  temporaryBankAccount?: TemporaryBankAccount;
+  createdAt: Date;
+  completedAt?: Date;
+  expiresAt?: Date;
 }

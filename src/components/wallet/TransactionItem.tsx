@@ -8,7 +8,11 @@ import {
   Home, 
   Briefcase,
   Cloud,
-  CloudOff
+  CloudOff,
+  User,
+  Building2,
+  ArrowUpRight,
+  ArrowDownLeft
 } from 'lucide-react';
 import { Transaction } from '../../types';
 import { formatCurrency, formatDate } from '../../utils/formatters';
@@ -34,8 +38,25 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
         return <Home className="h-4 w-4" />;
       case 'shopping':
         return <ShoppingBag className="h-4 w-4" />;
+      case 'transfer':
+        return transaction.amount > 0 ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />;
       default:
         return <Briefcase className="h-4 w-4" />;
+    }
+  };
+
+  const getPaymentMethodIcon = () => {
+    switch (transaction.paymentMethod) {
+      case 'volt_tag':
+        return <User className="h-3 w-3" />;
+      case 'bank_transfer':
+        return <Building2 className="h-3 w-3" />;
+      case 'qr':
+        return <span className="text-xs">QR</span>;
+      case 'nfc':
+        return <span className="text-xs">NFC</span>;
+      default:
+        return null;
     }
   };
   
@@ -52,13 +73,35 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
         
         <div>
           <div className="font-medium text-neutral-800">{transaction.description}</div>
-          <div className="flex items-center text-xs text-neutral-500">
+          <div className="flex items-center text-xs text-neutral-500 space-x-2">
             <span>{formatDate(transaction.date)}</span>
-            <span className="mx-1">•</span>
+            <span>•</span>
             <span className="capitalize">{transaction.category}</span>
+            
+            {transaction.paymentMethod && (
+              <>
+                <span>•</span>
+                <div className="flex items-center space-x-1">
+                  {getPaymentMethodIcon()}
+                  <span className="capitalize">
+                    {transaction.paymentMethod === 'volt_tag' ? 'Volt Tag' : 
+                     transaction.paymentMethod === 'bank_transfer' ? 'Bank' :
+                     transaction.paymentMethod}
+                  </span>
+                </div>
+              </>
+            )}
+            
+            {transaction.voltTag && (
+              <>
+                <span>•</span>
+                <span className="font-mono text-primary-600">{transaction.voltTag}</span>
+              </>
+            )}
+            
             {transaction.isOffline && (
               <>
-                <span className="mx-1">•</span>
+                <span>•</span>
                 <span className="flex items-center">
                   <CloudOff className="h-3 w-3 mr-1" />
                   Offline
@@ -72,7 +115,7 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
       <div className={`font-semibold ${
         isIncome ? 'text-secondary-600' : 'text-neutral-800'
       }`}>
-        {isIncome ? '+' : ''}{formatCurrency(Math.abs(transaction.amount), 'USD')}
+        {isIncome ? '+' : ''}{formatCurrency(Math.abs(transaction.amount), 'NGN')}
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import TransactionsList from '../components/wallet/TransactionsList';
 import OfflineLimitCard from '../components/wallet/OfflineLimitCard';
 import NewTransactionCard from '../components/wallet/NewTransactionCard';
 import SyncButton from '../components/wallet/SyncButton';
+import AddMoneyCard from '../components/money/AddMoneyCard';
+import SendMoneyCard from '../components/money/SendMoneyCard';
 import InvestmentCard from '../components/features/InvestmentCard';
 import CryptoCard from '../components/features/CryptoCard';
 import UtilityBillsCard from '../components/features/UtilityBillsCard';
@@ -43,6 +45,8 @@ const DashboardPage: React.FC = () => {
             <AccountSelector />
             <OfflineLimitCard />
             <div className="space-y-3">
+              <AddMoneyCard />
+              <SendMoneyCard />
               <NewTransactionCard />
               <Card className="p-4">
                 <SyncButton />

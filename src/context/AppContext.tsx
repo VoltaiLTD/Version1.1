@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, BankAccount, Transaction, OfflineSettings, SyncStatus, StripeSubscription } from '../types';
 import { mockUser, mockAccounts, mockTransactions } from '../utils/mockData';
+import { generateVoltTag } from '../utils/voltTag';
 import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -26,6 +27,8 @@ interface AppContextType {
   makeOfflineTransaction: (amount: number, description: string, category: string) => Promise<void>;
   fetchSubscription: () => Promise<void>;
   updateUserProfile: (updates: Partial<User>) => Promise<void>;
+  addMoney: (amount: number, method: 'volt_tag' | 'bank_transfer', description: string) => Promise<void>;
+  sendMoney: (amount: number, description: string, method: 'volt_tag' | 'bank_transfer', details?: any) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -44,7 +47,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     warningThreshold: 80,
     aiSuggestedLimit: 150000,
     requireSignature: false,
-    allowedPaymentMethods: ['qr', 'nfc', 'manual'],
+    allowedPaymentMethods: ['qr', 'nfc', 'manual', 'volt_tag', 'bank_transfer'],
   });
   
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
@@ -89,7 +92,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // Load saved avatar from localStorage
         const savedAvatar = localStorage.getItem('volt_user_avatar');
-        const userWithAvatar = savedAvatar ? { ...mockUser, avatarUrl: savedAvatar } : mockUser;
+        
+        // Generate Volt tag for the user if not exists
+        const voltTag = generateVoltTag(mockUser.name, mockUser.id);
+        const userWithAvatar = { 
+          ...mockUser, 
+          avatarUrl: savedAvatar || mockUser.avatarUrl,
+          voltTag 
+        };
         
         setUser(userWithAvatar);
         setAccounts(mockAccounts);
@@ -115,7 +125,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // Load saved avatar from localStorage
         const savedAvatar = localStorage.getItem('volt_user_avatar');
-        const userWithAvatar = savedAvatar ? { ...mockUser, avatarUrl: savedAvatar } : mockUser;
+        
+        // Generate Volt tag for the user if not exists
+        const voltTag = generateVoltTag(mockUser.name, mockUser.id);
+        const userWithAvatar = { 
+          ...mockUser, 
+          avatarUrl: savedAvatar || mockUser.avatarUrl,
+          voltTag 
+        };
         
         setUser(userWithAvatar);
         setAccounts(mockAccounts);
@@ -281,6 +298,93 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       pendingTransactionsCount: prev.pendingTransactionsCount + 1,
     }));
   };
+
+  const addMoney = async (amount: number, method: 'volt_tag' | 'bank_transfer', description: string) => {
+    if (!currentAccount) return;
+    
+    // Create a new transaction for adding money
+    const newTransaction: Transaction = {
+      id: Math.random().toString(36).substring(2, 11),
+      accountId: currentAccount.id,
+      amount: amount, // Positive for adding money
+      description,
+      category: 'Income',
+      date: new Date(),
+      isOffline: false,
+      status: 'completed',
+      paymentMethod: method,
+      voltTag: method === 'volt_tag' ? user?.voltTag : undefined,
+    };
+    
+    // Add to transactions
+    setTransactions(prev => [newTransaction, ...prev]);
+    
+    // Update account balance
+    setAccounts(prev => prev.map(acc => {
+      if (acc.id === currentAccount.id) {
+        return { 
+          ...acc, 
+          balance: acc.balance + amount 
+        };
+      }
+      return acc;
+    }));
+    
+    // Update current account
+    setCurrentAccountState(prev => {
+      if (prev && prev.id === currentAccount.id) {
+        return {
+          ...prev,
+          balance: prev.balance + amount
+        };
+      }
+      return prev;
+    });
+  };
+
+  const sendMoney = async (amount: number, description: string, method: 'volt_tag' | 'bank_transfer', details?: any) => {
+    if (!currentAccount) return;
+    
+    // Create a new transaction for sending money
+    const newTransaction: Transaction = {
+      id: Math.random().toString(36).substring(2, 11),
+      accountId: currentAccount.id,
+      amount: -amount, // Negative for sending money
+      description,
+      category: 'Transfer',
+      date: new Date(),
+      isOffline: false,
+      status: 'completed',
+      paymentMethod: method,
+      voltTag: details?.voltTag,
+      recipientId: details?.recipientId,
+    };
+    
+    // Add to transactions
+    setTransactions(prev => [newTransaction, ...prev]);
+    
+    // Update account balance
+    setAccounts(prev => prev.map(acc => {
+      if (acc.id === currentAccount.id) {
+        return { 
+          ...acc, 
+          balance: acc.balance - amount 
+        };
+      }
+      return acc;
+    }));
+    
+    // Update current account
+    setCurrentAccountState(prev => {
+      if (prev && prev.id === currentAccount.id) {
+        return {
+          ...prev,
+          balance: prev.balance - amount
+        };
+      }
+      return prev;
+    });
+  };
   
   const value = {
     user,
@@ -300,6 +404,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     makeOfflineTransaction,
     fetchSubscription,
     updateUserProfile,
+    addMoney,
+    sendMoney,
   };
   
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
