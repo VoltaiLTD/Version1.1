@@ -1,29 +1,32 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Upload, User, X } from 'lucide-react';
+import { Camera, Upload, User, X, Loader2 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
 import Button from '../ui/Button';
 import Card from '../ui/Card';
 
 const ProfilePictureUpload: React.FC = () => {
-  const { user, updateUserProfile } = useApp();
+  const { user, updateUserProfile, uploadProfilePicture } = useApp();
   const [isUploading, setIsUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    setError(null);
+
     // Validate file type
     if (!file.type.startsWith('image/')) {
-      alert('Please select an image file');
+      setError('Please select an image file');
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('File size must be less than 5MB');
+      setError('File size must be less than 5MB');
       return;
     }
 
@@ -36,20 +39,24 @@ const ProfilePictureUpload: React.FC = () => {
   };
 
   const handleUpload = async () => {
-    if (!previewUrl) return;
+    const file = fileInputRef.current?.files?.[0];
+    if (!file || !previewUrl) return;
 
     setIsUploading(true);
+    setError(null);
+
     try {
-      // Store the image data in localStorage for persistence
-      localStorage.setItem('volt_user_avatar', previewUrl);
+      // Upload to Supabase storage
+      const publicUrl = await uploadProfilePicture(file);
       
-      // Update user profile with the preview URL
-      await updateUserProfile({ avatarUrl: previewUrl });
+      // Update user profile with the public URL
+      await updateUserProfile({ avatarUrl: publicUrl });
+      
       setShowUploadModal(false);
       setPreviewUrl(null);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error uploading profile picture:', error);
-      alert('Failed to upload profile picture');
+      setError(error.message || 'Failed to upload profile picture');
     } finally {
       setIsUploading(false);
     }
@@ -57,19 +64,27 @@ const ProfilePictureUpload: React.FC = () => {
 
   const handleRemovePhoto = async () => {
     try {
-      // Remove from localStorage
-      localStorage.removeItem('volt_user_avatar');
-      
-      // Update user profile
+      setIsUploading(true);
       await updateUserProfile({ avatarUrl: undefined });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error removing profile picture:', error);
-      alert('Failed to remove profile picture');
+      setError(error.message || 'Failed to remove profile picture');
+    } finally {
+      setIsUploading(false);
     }
   };
 
   const triggerFileInput = () => {
     fileInputRef.current?.click();
+  };
+
+  const closeModal = () => {
+    setShowUploadModal(false);
+    setPreviewUrl(null);
+    setError(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   return (
@@ -90,9 +105,14 @@ const ProfilePictureUpload: React.FC = () => {
           
           <button
             onClick={() => setShowUploadModal(true)}
-            className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-primary-500 text-white flex items-center justify-center shadow-lg hover:bg-primary-600 transition-colors"
+            disabled={isUploading}
+            className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-primary-500 text-white flex items-center justify-center shadow-lg hover:bg-primary-600 transition-colors disabled:opacity-50"
           >
-            <Camera className="h-4 w-4" />
+            {isUploading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Camera className="h-4 w-4" />
+            )}
           </button>
         </div>
 
@@ -103,6 +123,7 @@ const ProfilePictureUpload: React.FC = () => {
             variant="text"
             size="sm"
             onClick={() => setShowUploadModal(true)}
+            disabled={isUploading}
             className="mt-1 p-0"
           >
             Change Photo
@@ -117,15 +138,19 @@ const ProfilePictureUpload: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold">Update Profile Picture</h3>
               <button
-                onClick={() => {
-                  setShowUploadModal(false);
-                  setPreviewUrl(null);
-                }}
-                className="text-neutral-500 hover:text-neutral-700"
+                onClick={closeModal}
+                disabled={isUploading}
+                className="text-neutral-500 hover:text-neutral-700 disabled:opacity-50"
               >
                 <X className="h-5 w-5" />
               </button>
             </div>
+
+            {error && (
+              <div className="mb-4 p-3 bg-error-50 text-error-700 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
             <div className="space-y-4">
               {/* Current/Preview Image */}
@@ -164,6 +189,7 @@ const ProfilePictureUpload: React.FC = () => {
                   onClick={triggerFileInput}
                   variant="outline"
                   className="w-full"
+                  disabled={isUploading}
                 >
                   <Upload className="h-4 w-4 mr-2" />
                   Choose New Photo
@@ -184,6 +210,7 @@ const ProfilePictureUpload: React.FC = () => {
                     onClick={handleRemovePhoto}
                     variant="outline"
                     className="w-full text-error-600 border-error-300 hover:bg-error-50"
+                    disabled={isUploading}
                   >
                     Remove Current Photo
                   </Button>

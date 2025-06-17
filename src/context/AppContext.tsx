@@ -20,7 +20,7 @@ interface AppContextType {
   subscription: StripeSubscription | null;
   login: (email: string, password: string) => Promise<void>;
   signup: (email: string, password: string, name: string) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
   syncData: () => Promise<void>;
   setCurrentAccount: (accountId: string) => void;
   updateOfflineSettings: (settings: Partial<OfflineSettings>) => void;
@@ -29,6 +29,7 @@ interface AppContextType {
   updateUserProfile: (updates: Partial<User>) => Promise<void>;
   addMoney: (amount: number, method: 'volt_tag' | 'bank_transfer', description: string) => Promise<void>;
   sendMoney: (amount: number, description: string, method: 'volt_tag' | 'bank_transfer', details?: any) => Promise<void>;
+  uploadProfilePicture: (file: File) => Promise<string>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -75,42 +76,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Load saved profile picture on mount
-  useEffect(() => {
-    const savedAvatar = localStorage.getItem('volt_user_avatar');
-    if (savedAvatar && user) {
-      setUser(prev => prev ? { ...prev, avatarUrl: savedAvatar } : null);
-    }
-  }, [isAuthenticated]);
-
   // Check for existing session on mount
   useEffect(() => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
-        setIsAuthenticated(true);
-        
-        // Load saved avatar from localStorage
-        const savedAvatar = localStorage.getItem('volt_user_avatar');
-        
-        // Generate Volt tag for the user if not exists
-        const voltTag = generateVoltTag(mockUser.name, mockUser.id);
-        const userWithAvatar = { 
-          ...mockUser, 
-          avatarUrl: savedAvatar || mockUser.avatarUrl,
-          voltTag 
-        };
-        
-        setUser(userWithAvatar);
-        setAccounts(mockAccounts);
-        setTransactions(mockTransactions);
-        setCurrentAccountState(mockAccounts[0]);
-        setSyncStatus({
-          lastSynced: new Date(),
-          isOnline: navigator.onLine,
-          pendingTransactionsCount: 0,
-        });
-        await fetchSubscription();
+        await initializeUserData(session.user);
       }
     };
     
@@ -121,29 +92,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        setIsAuthenticated(true);
-        
-        // Load saved avatar from localStorage
-        const savedAvatar = localStorage.getItem('volt_user_avatar');
-        
-        // Generate Volt tag for the user if not exists
-        const voltTag = generateVoltTag(mockUser.name, mockUser.id);
-        const userWithAvatar = { 
-          ...mockUser, 
-          avatarUrl: savedAvatar || mockUser.avatarUrl,
-          voltTag 
-        };
-        
-        setUser(userWithAvatar);
-        setAccounts(mockAccounts);
-        setTransactions(mockTransactions);
-        setCurrentAccountState(mockAccounts[0]);
-        setSyncStatus({
-          lastSynced: new Date(),
-          isOnline: navigator.onLine,
-          pendingTransactionsCount: 0,
-        });
-        await fetchSubscription();
+        await initializeUserData(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
         setAccounts([]);
@@ -151,11 +100,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setCurrentAccountState(null);
         setIsAuthenticated(false);
         setSubscription(null);
+        // Clear any stored data
+        localStorage.removeItem('volt_user_avatar');
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  const initializeUserData = async (authUser: any) => {
+    setIsAuthenticated(true);
+    
+    // Generate Volt tag for the user
+    const voltTag = generateVoltTag(authUser.user_metadata?.name || authUser.email, authUser.id);
+    
+    // Load user profile from Supabase storage or use mock data
+    const userProfile = {
+      ...mockUser,
+      id: authUser.id,
+      email: authUser.email,
+      name: authUser.user_metadata?.name || authUser.email.split('@')[0],
+      voltTag
+    };
+
+    // Try to load profile picture from Supabase storage
+    try {
+      const { data } = await supabase.storage
+        .from('avatars')
+        .getPublicUrl(`${authUser.id}/avatar.jpg`);
+      
+      if (data?.publicUrl) {
+        // Check if the file actually exists
+        const response = await fetch(data.publicUrl, { method: 'HEAD' });
+        if (response.ok) {
+          userProfile.avatarUrl = data.publicUrl;
+        }
+      }
+    } catch (error) {
+      console.log('No profile picture found in storage');
+    }
+
+    // Fallback to localStorage for backward compatibility
+    if (!userProfile.avatarUrl) {
+      const savedAvatar = localStorage.getItem('volt_user_avatar');
+      if (savedAvatar) {
+        userProfile.avatarUrl = savedAvatar;
+      }
+    }
+    
+    setUser(userProfile);
+    setAccounts(mockAccounts);
+    setTransactions(mockTransactions);
+    setCurrentAccountState(mockAccounts[0]);
+    setSyncStatus({
+      lastSynced: new Date(),
+      isOnline: navigator.onLine,
+      pendingTransactionsCount: 0,
+    });
+    await fetchSubscription();
+  };
   
   const login = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -185,7 +188,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   
   const logout = async () => {
-    await supabase.auth.signOut();
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error('Error signing out:', error);
+        throw new Error(error.message);
+      }
+      
+      // Clear local state immediately
+      setUser(null);
+      setAccounts([]);
+      setTransactions([]);
+      setCurrentAccountState(null);
+      setIsAuthenticated(false);
+      setSubscription(null);
+      
+      // Clear any stored data
+      localStorage.removeItem('volt_user_avatar');
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Force clear state even if there's an error
+      setUser(null);
+      setAccounts([]);
+      setTransactions([]);
+      setCurrentAccountState(null);
+      setIsAuthenticated(false);
+      setSubscription(null);
+      localStorage.removeItem('volt_user_avatar');
+      throw error;
+    }
   };
 
   const fetchSubscription = async () => {
@@ -206,6 +237,53 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const uploadProfilePicture = async (file: File): Promise<string> => {
+    if (!user) {
+      throw new Error('User not authenticated');
+    }
+
+    // Validate file type and size
+    if (!file.type.startsWith('image/')) {
+      throw new Error('Please select an image file');
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('File size must be less than 5MB');
+    }
+
+    try {
+      // Create a unique filename
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/avatar.${fileExt}`;
+
+      // Upload to Supabase storage
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          upsert: true,
+          contentType: file.type
+        });
+
+      if (error) {
+        throw new Error(`Upload failed: ${error.message}`);
+      }
+
+      // Get the public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get public URL');
+      }
+
+      return urlData.publicUrl;
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      throw error;
+    }
+  };
+
   const updateUserProfile = async (updates: Partial<User>) => {
     if (!user) return;
     
@@ -214,13 +292,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const updatedUser = { ...user, ...updates };
       setUser(updatedUser);
       
-      // If avatar is being updated, save to localStorage for persistence
-      if (updates.avatarUrl !== undefined) {
-        if (updates.avatarUrl) {
-          localStorage.setItem('volt_user_avatar', updates.avatarUrl);
-        } else {
+      // If avatar is being updated and it's a data URL, upload it
+      if (updates.avatarUrl && updates.avatarUrl.startsWith('data:')) {
+        try {
+          // Convert data URL to blob
+          const response = await fetch(updates.avatarUrl);
+          const blob = await response.blob();
+          const file = new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+          
+          // Upload to Supabase storage
+          const publicUrl = await uploadProfilePicture(file);
+          updatedUser.avatarUrl = publicUrl;
+          setUser(updatedUser);
+          
+          // Remove from localStorage since it's now in Supabase
           localStorage.removeItem('volt_user_avatar');
+        } catch (uploadError) {
+          console.error('Error uploading avatar:', uploadError);
+          // Fallback to localStorage for backward compatibility
+          localStorage.setItem('volt_user_avatar', updates.avatarUrl);
         }
+      } else if (updates.avatarUrl === undefined) {
+        // Remove avatar
+        if (user.id) {
+          try {
+            await supabase.storage
+              .from('avatars')
+              .remove([`${user.id}/avatar.jpg`, `${user.id}/avatar.png`, `${user.id}/avatar.jpeg`]);
+          } catch (error) {
+            console.log('No avatar to remove from storage');
+          }
+        }
+        localStorage.removeItem('volt_user_avatar');
       }
       
       // In a real app, you would also update the user profile in the database
@@ -406,6 +509,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateUserProfile,
     addMoney,
     sendMoney,
+    uploadProfilePicture,
   };
   
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
