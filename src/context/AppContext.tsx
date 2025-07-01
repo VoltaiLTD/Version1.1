@@ -123,25 +123,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       voltTag
     };
 
-    // Try to load profile picture from Supabase storage
-    try {
-      const { data } = await supabase.storage
-        .from('avatars')
-        .getPublicUrl(`${authUser.id}/avatar.jpg`);
-      
-      if (data?.publicUrl) {
-        // Check if the file actually exists
-        const response = await fetch(data.publicUrl, { method: 'HEAD' });
-        if (response.ok) {
-          userProfile.avatarUrl = data.publicUrl;
-        }
-      }
-    } catch (error) {
-      console.log('No profile picture found in storage');
-    }
-
-    // Fallback to localStorage for backward compatibility
-    if (!userProfile.avatarUrl) {
+    // Get avatar URL from user metadata first (most reliable)
+    if (authUser.user_metadata?.avatar_url) {
+      userProfile.avatarUrl = authUser.user_metadata.avatar_url;
+    } else {
+      // Fallback to localStorage for backward compatibility
       const savedAvatar = localStorage.getItem('volt_user_avatar');
       if (savedAvatar) {
         userProfile.avatarUrl = savedAvatar;
@@ -277,6 +263,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         throw new Error('Failed to get public URL');
       }
 
+      // Store the avatar URL in user metadata
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: {
+          avatar_url: urlData.publicUrl
+        }
+      });
+
+      if (updateError) {
+        console.error('Error updating user metadata:', updateError);
+        // Continue anyway, the upload was successful
+      }
+
       return urlData.publicUrl;
     } catch (error) {
       console.error('Error uploading profile picture:', error);
@@ -316,9 +314,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Remove avatar
         if (user.id) {
           try {
+            // Remove from storage
             await supabase.storage
               .from('avatars')
               .remove([`${user.id}/avatar.jpg`, `${user.id}/avatar.png`, `${user.id}/avatar.jpeg`]);
+            
+            // Remove from user metadata
+            await supabase.auth.updateUser({
+              data: {
+                avatar_url: null
+              }
+            });
           } catch (error) {
             console.log('No avatar to remove from storage');
           }
