@@ -98,8 +98,8 @@ const ProfilePictureUpload: React.FC = () => {
               className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-lg"
             />
           ) : (
-            <div className="h-20 w-20 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold text-xl border-4 border-white shadow-lg">
-              {user?.name.charAt(0)}
+            <div className="h-20 w-20 rounded-full bg-neutral-200 flex items-center justify-center border-4 border-white shadow-lg">
+              <User className="h-8 w-8 text-neutral-400" />
             </div>
           )}
           
@@ -126,7 +126,7 @@ const ProfilePictureUpload: React.FC = () => {
             disabled={isUploading}
             className="mt-1 p-0"
           >
-            Change Photo
+            {user?.avatarUrl ? 'Change Photo' : 'Add Photo'}
           </Button>
         </div>
       </div>
@@ -136,7 +136,9 @@ const ProfilePictureUpload: React.FC = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <Card className="max-w-md w-full p-6">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Update Profile Picture</h3>
+              <h3 className="text-lg font-semibold">
+                {user?.avatarUrl ? 'Update Profile Picture' : 'Add Profile Picture'}
+              </h3>
               <button
                 onClick={closeModal}
                 disabled={isUploading}
@@ -168,8 +170,8 @@ const ProfilePictureUpload: React.FC = () => {
                     className="h-32 w-32 rounded-full object-cover border-4 border-neutral-200"
                   />
                 ) : (
-                  <div className="h-32 w-32 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-semibold text-2xl border-4 border-neutral-200">
-                    {user?.name.charAt(0)}
+                  <div className="h-32 w-32 rounded-full bg-neutral-200 flex items-center justify-center border-4 border-neutral-200">
+                    <User className="h-12 w-12 text-neutral-400" />
                   </div>
                 )}
               </div>
@@ -192,7 +194,7 @@ const ProfilePictureUpload: React.FC = () => {
                   disabled={isUploading}
                 >
                   <Upload className="h-4 w-4 mr-2" />
-                  Choose New Photo
+                  Choose Photo
                 </Button>
 
                 {previewUrl && (
