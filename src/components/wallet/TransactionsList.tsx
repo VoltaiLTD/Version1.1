@@ -1,18 +1,16 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
-import Card from '../ui/Card';
-import TransactionItem from './TransactionItem';
+import { useWallet } from '../../hooks/useWallet';
+import { Card } from '../ui/Card';
+import { TransactionItem } from './TransactionItem';
 import { Transaction } from '../../types';
 
-const TransactionsList: React.FC = () => {
-  const { transactions, currentAccount } = useApp();
+export const TransactionsList: React.FC = () => {
+  const { transactions, currentAccount } = useWallet();
   
-  // Filter transactions for current account
   const accountTransactions = transactions.filter(
     tx => currentAccount && tx.accountId === currentAccount.id
   );
   
-  // Group transactions by date
   const groupedTransactions: Record<string, Transaction[]> = {};
   
   accountTransactions.forEach(transaction => {
@@ -23,7 +21,6 @@ const TransactionsList: React.FC = () => {
     groupedTransactions[dateStr].push(transaction);
   });
   
-  // Sort dates in descending order
   const sortedDates = Object.keys(groupedTransactions).sort((a, b) => 
     new Date(b).getTime() - new Date(a).getTime()
   );
@@ -64,5 +61,3 @@ const TransactionsList: React.FC = () => {
     </div>
   );
 };
-
-export default TransactionsList;

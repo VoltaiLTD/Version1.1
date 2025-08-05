@@ -7,7 +7,7 @@ interface CardProps {
   hoverable?: boolean;
 }
 
-const Card: React.FC<CardProps> = ({ 
+export const Card: React.FC<CardProps> = ({ 
   children, 
   className = '', 
   onClick,
@@ -25,5 +25,3 @@ const Card: React.FC<CardProps> = ({
     </div>
   );
 };
-
-export default Card;

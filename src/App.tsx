@@ -1,17 +1,17 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { useApp } from './context/AppContext';
-import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
-import DashboardPage from './pages/DashboardPage';
-import AccountSettingsPage from './pages/AccountSettingsPage';
-import SecurityPrivacyPage from './pages/SecurityPrivacyPage';
-import NotificationsPage from './pages/NotificationsPage';
-import TransferLimitsPage from './pages/TransferLimitsPage';
-import SuccessPage from './pages/SuccessPage';
+import { useAuth } from './hooks/useAuth';
+import { LoginPage } from './pages/auth/LoginPage';
+import { SignupPage } from './pages/auth/SignupPage';
+import { DashboardPage } from './pages/dashboard/DashboardPage';
+import { AccountSettingsPage } from './pages/settings/AccountSettingsPage';
+import { SecurityPrivacyPage } from './pages/settings/SecurityPrivacyPage';
+import { NotificationsPage } from './pages/settings/NotificationsPage';
+import { TransferLimitsPage } from './pages/settings/TransferLimitsPage';
+import { SuccessPage } from './pages/payment/SuccessPage';
 
 function App() {
-  const { isAuthenticated } = useApp();
+  const { isAuthenticated } = useAuth();
   
   return (
     <Routes>

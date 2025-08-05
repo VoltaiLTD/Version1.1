@@ -1,9 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { MessageCircle, Send, Bot, User } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import { aiAssistant } from '../../services/openai';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 
 interface ChatMessage {
   id: string;
@@ -12,8 +10,7 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-const AIAssistantChat: React.FC = () => {
-  const { transactions, accounts, offlineSettings } = useApp();
+export const AIAssistantChat: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 'welcome',
@@ -49,36 +46,18 @@ const AIAssistantChat: React.FC = () => {
     setInputMessage('');
     setIsLoading(true);
 
-    try {
-      const context = {
-        transactions,
-        accounts,
-        currentSpendingLimit: offlineSettings.spendingLimit,
-        timeframe: 'month' as const
-      };
-
-      const response = await aiAssistant.chatWithAssistant(inputMessage, context);
-
+    // Simulate AI response
+    setTimeout(() => {
       const assistantMessage: ChatMessage = {
         id: `assistant-${Date.now()}`,
         type: 'assistant',
-        content: response,
+        content: "I understand your question about your finances. Based on your current spending patterns, I'd recommend reviewing your budget categories and setting up automated savings goals.",
         timestamp: new Date()
       };
 
       setMessages(prev => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage: ChatMessage = {
-        id: `error-${Date.now()}`,
-        type: 'assistant',
-        content: "I'm sorry, I'm having trouble processing your request right now. Please try again later.",
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
       setIsLoading(false);
-    }
+    }, 1500);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -198,5 +177,3 @@ const AIAssistantChat: React.FC = () => {
     </Card>
   );
 };
-
-export default AIAssistantChat;

@@ -5,7 +5,7 @@ export interface User {
   avatarUrl?: string;
   publicKey: string;
   privateKey: string;
-  voltTag?: string; // Unique Volt tag for the user
+  voltTag?: string;
   phone?: string;
   address?: string;
   dateOfBirth?: string;
@@ -65,8 +65,8 @@ export interface Transaction {
   paymentMethod?: 'qr' | 'nfc' | 'manual' | 'volt_tag' | 'bank_transfer';
   merchant?: string;
   location?: string;
-  voltTag?: string; // Volt tag used for the transaction
-  temporaryBankAccount?: string; // Temporary bank account used
+  voltTag?: string;
+  temporaryBankAccount?: string;
 }
 
 export interface OfflineSettings {
@@ -118,16 +118,6 @@ export interface StripeOrder {
   order_date: string;
 }
 
-export interface BankConnection {
-  id: string;
-  bankName: string;
-  accountType: string;
-  lastFour: string;
-  isConnected: boolean;
-  connectedAt: Date;
-  permissions: string[];
-}
-
 export interface AIInsight {
   id: string;
   type: 'spending_pattern' | 'budget_recommendation' | 'savings_opportunity' | 'risk_alert';
@@ -147,13 +137,6 @@ export interface FinancialProfile {
   savingsRate: number;
   riskTolerance: 'low' | 'medium' | 'high';
   financialGoals: string[];
-}
-
-export interface BankAuthRequest {
-  bankName: string;
-  accountTypes: string[];
-  permissions: string[];
-  redirectUrl: string;
 }
 
 export interface VoltTag {
@@ -177,19 +160,4 @@ export interface TemporaryBankAccount {
   usedAt?: Date;
   amount?: number;
   purpose: string;
-}
-
-export interface MoneyTransfer {
-  id: string;
-  fromUserId: string;
-  toUserId?: string;
-  amount: number;
-  description: string;
-  method: 'volt_tag' | 'bank_transfer';
-  status: 'pending' | 'completed' | 'failed' | 'expired';
-  voltTag?: string;
-  temporaryBankAccount?: TemporaryBankAccount;
-  createdAt: Date;
-  completedAt?: Date;
-  expiresAt?: Date;
 }

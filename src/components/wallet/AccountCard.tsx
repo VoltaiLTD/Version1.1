@@ -1,7 +1,7 @@
 import React from 'react';
 import { CreditCard, Landmark, Wallet } from 'lucide-react';
 import { BankAccount } from '../../types';
-import Card from '../ui/Card';
+import { Card } from '../ui/Card';
 import { formatCurrency } from '../../utils/formatters';
 
 interface AccountCardProps {
@@ -10,7 +10,7 @@ interface AccountCardProps {
   onClick: () => void;
 }
 
-const AccountCard: React.FC<AccountCardProps> = ({ account, isSelected, onClick }) => {
+export const AccountCard: React.FC<AccountCardProps> = ({ account, isSelected, onClick }) => {
   const getAccountIcon = () => {
     switch (account.type) {
       case 'checking':
@@ -57,5 +57,3 @@ const AccountCard: React.FC<AccountCardProps> = ({ account, isSelected, onClick 
     </Card>
   );
 };
-
-export default AccountCard;

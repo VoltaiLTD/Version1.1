@@ -1,13 +1,13 @@
 import React from 'react';
-import Header from './Header';
-import { useApp } from '../../context/AppContext';
+import { Header } from './Header';
+import { useAuth } from '../../hooks/useAuth';
 
 interface LayoutProps {
   children: React.ReactNode;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const { isAuthenticated } = useApp();
+export const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { isAuthenticated } = useAuth();
   
   return (
     <div className="min-h-screen flex flex-col bg-neutral-50">
@@ -25,5 +25,3 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     </div>
   );
 };
-
-export default Layout;

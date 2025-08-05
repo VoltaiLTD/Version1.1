@@ -1,9 +1,9 @@
 import React from 'react';
-import { useApp } from '../../context/AppContext';
-import AccountCard from './AccountCard';
+import { useWallet } from '../../hooks/useWallet';
+import { AccountCard } from './AccountCard';
 
-const AccountSelector: React.FC = () => {
-  const { accounts, currentAccount, setCurrentAccount } = useApp();
+export const AccountSelector: React.FC = () => {
+  const { accounts, currentAccount, setCurrentAccount } = useWallet();
   
   return (
     <div className="space-y-3">
@@ -21,5 +21,3 @@ const AccountSelector: React.FC = () => {
     </div>
   );
 };
-
-export default AccountSelector;

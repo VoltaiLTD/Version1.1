@@ -1,46 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { Zap, Settings, Brain } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import { aiAssistant } from '../../services/openai';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
+import React, { useState } from 'react';
+import { Zap, Settings } from 'lucide-react';
+import { useWallet } from '../../hooks/useWallet';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 import { formatCurrency } from '../../utils/formatters';
 
-const OfflineLimitCard: React.FC = () => {
-  const { offlineSettings, updateOfflineSettings, currentAccount, transactions, accounts } = useApp();
+export const OfflineLimitCard: React.FC = () => {
+  const { offlineSettings, updateOfflineSettings, currentAccount } = useWallet();
   const [isEditing, setIsEditing] = useState(false);
   const [limit, setLimit] = useState(offlineSettings.spendingLimit);
-  const [isGettingAIRecommendation, setIsGettingAIRecommendation] = useState(false);
-  const [aiRecommendation, setAiRecommendation] = useState<number | null>(null);
   
   const handleSave = () => {
-    updateOfflineSettings({ 
-      spendingLimit: limit,
-      aiSuggestedLimit: aiRecommendation || undefined
-    });
+    updateOfflineSettings({ spendingLimit: limit });
     setIsEditing(false);
-  };
-
-  const getAIRecommendation = async () => {
-    if (transactions.length === 0 || accounts.length === 0) return;
-
-    setIsGettingAIRecommendation(true);
-    try {
-      const analysisData = {
-        transactions,
-        accounts,
-        currentSpendingLimit: offlineSettings.spendingLimit,
-        timeframe: 'month' as const
-      };
-
-      const recommendation = await aiAssistant.recommendSpendingLimit(analysisData);
-      setAiRecommendation(recommendation.recommendedLimit);
-      setLimit(recommendation.recommendedLimit);
-    } catch (error) {
-      console.error('Error getting AI recommendation:', error);
-    } finally {
-      setIsGettingAIRecommendation(false);
-    }
   };
   
   const percentUsed = currentAccount 
@@ -87,55 +59,22 @@ const OfflineLimitCard: React.FC = () => {
             </label>
             <input
               type="range"
-              min="50"
-              max="1000"
-              step="50"
+              min="50000"
+              max="1000000"
+              step="50000"
               value={limit}
               onChange={(e) => setLimit(Number(e.target.value))}
               className="w-full h-2 bg-neutral-200 rounded-lg appearance-none cursor-pointer"
             />
             <div className="flex justify-between text-sm text-neutral-500 mt-1">
-              <span>$50</span>
-              <span>$1000</span>
+              <span>{formatCurrency(50000)}</span>
+              <span>{formatCurrency(1000000)}</span>
             </div>
           </div>
           
           <div className="text-center text-2xl font-semibold">
             {formatCurrency(limit)}
           </div>
-
-          {transactions.length > 0 && accounts.length > 0 && (
-            <div className="text-center">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={getAIRecommendation}
-                isLoading={isGettingAIRecommendation}
-                className="mb-3"
-              >
-                <Brain className="h-4 w-4 mr-2" />
-                Get AI Recommendation
-              </Button>
-            </div>
-          )}
-          
-          {aiRecommendation && aiRecommendation !== limit && (
-            <div className="text-sm text-center text-neutral-600 p-3 bg-primary-50 rounded-lg">
-              <div className="flex items-center justify-center space-x-2 mb-1">
-                <Brain className="h-4 w-4 text-primary-600" />
-                <span className="text-primary-600 font-medium">AI suggests:</span>
-              </div>
-              <span className="font-semibold">{formatCurrency(aiRecommendation)}</span>
-              <div className="mt-2">
-                <Button
-                  size="sm"
-                  onClick={() => setLimit(aiRecommendation)}
-                >
-                  Use AI Recommendation
-                </Button>
-              </div>
-            </div>
-          )}
           
           <div className="flex space-x-2 justify-end">
             <Button 
@@ -143,7 +82,6 @@ const OfflineLimitCard: React.FC = () => {
               onClick={() => {
                 setLimit(offlineSettings.spendingLimit);
                 setIsEditing(false);
-                setAiRecommendation(null);
               }}
             >
               Cancel
@@ -182,23 +120,12 @@ const OfflineLimitCard: React.FC = () => {
               ></div>
             </div>
           </div>
-
-          {offlineSettings.aiSuggestedLimit && (
-            <div className="mb-4 p-3 bg-primary-50 rounded-lg">
-              <div className="flex items-center space-x-2 text-primary-700 text-sm">
-                <Brain className="h-4 w-4" />
-                <span>AI recommended: {formatCurrency(offlineSettings.aiSuggestedLimit)}</span>
-              </div>
-            </div>
-          )}
           
           <div className="text-sm text-neutral-600">
-            You can spend up to <span className="font-semibold">{formatCurrency(offlineSettings.spendingLimit)}</span> while offline. This limit helps protect your finances and can be personalized using AI analysis.
+            You can spend up to <span className="font-semibold">{formatCurrency(offlineSettings.spendingLimit)}</span> while offline. This limit helps protect your finances.
           </div>
         </div>
       )}
     </Card>
   );
 };
-
-export default OfflineLimitCard;

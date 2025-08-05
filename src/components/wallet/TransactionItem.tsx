@@ -7,7 +7,6 @@ import {
   Music, 
   Home, 
   Briefcase,
-  Cloud,
   CloudOff,
   User,
   Building2,
@@ -21,7 +20,7 @@ interface TransactionItemProps {
   transaction: Transaction;
 }
 
-const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
+export const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
   const getCategoryIcon = () => {
     switch (transaction.category.toLowerCase()) {
       case 'food':
@@ -92,13 +91,6 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
               </>
             )}
             
-            {transaction.voltTag && (
-              <>
-                <span>•</span>
-                <span className="font-mono text-primary-600">{transaction.voltTag}</span>
-              </>
-            )}
-            
             {transaction.isOffline && (
               <>
                 <span>•</span>
@@ -120,5 +112,3 @@ const TransactionItem: React.FC<TransactionItemProps> = ({ transaction }) => {
     </div>
   );
 };
-
-export default TransactionItem;

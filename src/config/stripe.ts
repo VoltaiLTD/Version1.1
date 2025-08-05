@@ -9,7 +9,7 @@ export const stripeProducts: StripeProduct[] = [
   {
     priceId: 'price_1RYPJGPrW7kCFnr2dMv9Q0OP',
     name: 'VOLT.COIN',
-    description: 'Thanks for buying VoltAI Volt coin',
+    description: 'Premium digital currency for enhanced wallet features',
     mode: 'payment',
   },
 ];

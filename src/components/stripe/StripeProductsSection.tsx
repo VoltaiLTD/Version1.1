@@ -1,8 +1,8 @@
 import React from 'react';
-import { stripeProducts } from '../../stripe-config';
-import StripeProductCard from './StripeProductCard';
+import { stripeProducts } from '../../config/stripe';
+import { StripeProductCard } from './StripeProductCard';
 
-const StripeProductsSection: React.FC = () => {
+export const StripeProductsSection: React.FC = () => {
   if (stripeProducts.length === 0) {
     return null;
   }
@@ -14,7 +14,7 @@ const StripeProductsSection: React.FC = () => {
         <p className="text-neutral-600">Purchase VOLT.COIN and other premium features</p>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {stripeProducts.map((product) => (
           <StripeProductCard key={product.priceId} product={product} />
         ))}
@@ -22,5 +22,3 @@ const StripeProductsSection: React.FC = () => {
     </div>
   );
 };
-
-export default StripeProductsSection;

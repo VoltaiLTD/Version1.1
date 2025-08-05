@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { Send, User, Building2, Search, AlertCircle, CheckCircle } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import { searchVoltTag, validateVoltTag, generateTemporaryBankAccount } from '../../utils/voltTag';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
+import { Send, User, Building2, Search } from 'lucide-react';
+import { useAuth } from '../../hooks/useAuth';
+import { useWallet } from '../../hooks/useWallet';
+import { searchVoltTag, validateVoltTag } from '../../utils/voltTag';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 import { formatCurrency } from '../../utils/formatters';
 
-const SendMoneyCard: React.FC = () => {
-  const { user, sendMoney } = useApp();
+export const SendMoneyCard: React.FC = () => {
+  const { user } = useAuth();
+  const { sendMoney } = useWallet();
   const [isExpanded, setIsExpanded] = useState(false);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
@@ -17,7 +19,6 @@ const SendMoneyCard: React.FC = () => {
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
 
   const handleMethodSelect = (selectedMethod: 'volt_tag' | 'bank_transfer') => {
     setMethod(selectedMethod);
@@ -59,11 +60,6 @@ const SendMoneyCard: React.FC = () => {
       return;
     }
 
-    if (method === 'volt_tag' && !searchResult?.found) {
-      setError('Please search and select a valid Volt Tag');
-      return;
-    }
-
     setIsLoading(true);
     try {
       await sendMoney(
@@ -73,10 +69,7 @@ const SendMoneyCard: React.FC = () => {
         method === 'volt_tag' ? { voltTag, recipientId: searchResult?.userId } : undefined
       );
       
-      setSuccess(true);
-      setTimeout(() => {
-        resetForm();
-      }, 2000);
+      resetForm();
     } catch (err) {
       setError('Failed to send money');
     } finally {
@@ -91,7 +84,6 @@ const SendMoneyCard: React.FC = () => {
     setVoltTag('');
     setSearchResult(null);
     setError(null);
-    setSuccess(false);
     setIsExpanded(false);
   };
 
@@ -110,23 +102,6 @@ const SendMoneyCard: React.FC = () => {
     );
   }
 
-  if (success) {
-    return (
-      <Card className="p-6 text-center">
-        <div className="text-success-500 mb-4">
-          <CheckCircle className="h-12 w-12 mx-auto" />
-        </div>
-        <h3 className="text-lg font-semibold text-neutral-800 mb-2">Money Sent Successfully!</h3>
-        <p className="text-neutral-600 mb-4">
-          {formatCurrency(parseFloat(amount))} has been sent via {method === 'volt_tag' ? 'Volt Tag' : 'Bank Transfer'}
-        </p>
-        <Button onClick={resetForm} variant="outline">
-          Send Another
-        </Button>
-      </Card>
-    );
-  }
-
   return (
     <Card className="p-6">
       <div className="space-y-6">
@@ -138,13 +113,11 @@ const SendMoneyCard: React.FC = () => {
         </div>
 
         {error && (
-          <div className="p-3 bg-error-50 text-error-700 rounded-lg flex items-center">
-            <AlertCircle className="h-5 w-5 mr-2" />
-            <span>{error}</span>
+          <div className="p-3 bg-error-50 text-error-700 rounded-lg text-sm">
+            {error}
           </div>
         )}
 
-        {/* Amount and Description */}
         <div className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-neutral-700 mb-1">
@@ -182,7 +155,6 @@ const SendMoneyCard: React.FC = () => {
           </div>
         </div>
 
-        {/* Method Selection */}
         {!method && (
           <div className="space-y-3">
             <h3 className="text-sm font-medium text-neutral-700">Choose Method</h3>
@@ -225,7 +197,6 @@ const SendMoneyCard: React.FC = () => {
           </div>
         )}
 
-        {/* Volt Tag Method */}
         {method === 'volt_tag' && (
           <div className="space-y-4">
             <div>
@@ -276,7 +247,6 @@ const SendMoneyCard: React.FC = () => {
           </div>
         )}
 
-        {/* Bank Transfer Method */}
         {method === 'bank_transfer' && (
           <div className="space-y-4">
             <div className="p-4 bg-secondary-50 rounded-lg">
@@ -284,44 +254,6 @@ const SendMoneyCard: React.FC = () => {
               <p className="text-secondary-700 text-sm">
                 Enter the recipient's bank details to send {formatCurrency(parseFloat(amount) || 0)}
               </p>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Bank Name
-                </label>
-                <select className="input-field">
-                  <option value="">Select Bank</option>
-                  <option value="first-bank">First Bank of Nigeria</option>
-                  <option value="gtb">Guaranty Trust Bank</option>
-                  <option value="uba">United Bank for Africa</option>
-                  <option value="access">Access Bank</option>
-                  <option value="zenith">Zenith Bank</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Account Number
-                </label>
-                <input
-                  type="text"
-                  placeholder="0123456789"
-                  className="input-field"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-neutral-700 mb-1">
-                  Account Name
-                </label>
-                <input
-                  type="text"
-                  placeholder="Recipient's full name"
-                  className="input-field"
-                />
-              </div>
             </div>
 
             <Button
@@ -337,5 +269,3 @@ const SendMoneyCard: React.FC = () => {
     </Card>
   );
 };
-
-export default SendMoneyCard;

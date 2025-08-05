@@ -1,9 +1,4 @@
-/**
- * Utility functions for Volt Tag generation and management
- */
-
 export const generateVoltTag = (name: string, userId: string): string => {
-  // Create a unique tag based on name and user ID
   const cleanName = name.toLowerCase().replace(/[^a-z0-9]/g, '');
   const shortUserId = userId.slice(-6);
   const randomSuffix = Math.random().toString(36).substring(2, 5);
@@ -12,17 +7,13 @@ export const generateVoltTag = (name: string, userId: string): string => {
 };
 
 export const validateVoltTag = (tag: string): boolean => {
-  // Volt tag should start with @ and contain only alphanumeric characters
   const voltTagRegex = /^@[a-z0-9]{6,20}$/;
   return voltTagRegex.test(tag.toLowerCase());
 };
 
 export const searchVoltTag = async (tag: string): Promise<{ found: boolean; userId?: string; name?: string }> => {
-  // In a real app, this would search the database
-  // For now, we'll simulate a search
   await new Promise(resolve => setTimeout(resolve, 500));
   
-  // Mock search result
   if (tag === '@johnsmith123abc') {
     return {
       found: true,
@@ -45,7 +36,7 @@ export const generateTemporaryBankAccount = (userId: string, amount: number, pur
   
   const randomBank = banks[Math.floor(Math.random() * banks.length)];
   const accountNumber = '9' + Math.random().toString().slice(2, 12);
-  const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes from now
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
   
   return {
     id: `temp_${Date.now()}`,

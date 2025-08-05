@@ -1,82 +1,37 @@
 import React from 'react';
-import { Settings, Shield, Bell, DollarSign, Crown } from 'lucide-react';
+import { Settings, Shield, Bell, DollarSign, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useApp } from '../../context/AppContext';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
-import ProfilePictureUpload from './ProfilePictureUpload';
+import { useAuth } from '../../hooks/useAuth';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 
-const ProfileCard: React.FC = () => {
-  const { user, subscription } = useApp();
-
-  const getSubscriptionDisplay = () => {
-    if (!subscription) return 'Free';
-    
-    switch (subscription.subscription_status) {
-      case 'active':
-        return 'Premium';
-      case 'trialing':
-        return 'Trial';
-      case 'past_due':
-        return 'Past Due';
-      case 'canceled':
-        return 'Canceled';
-      default:
-        return 'Free';
-    }
-  };
-
-  const getSubscriptionColor = () => {
-    if (!subscription) return 'bg-neutral-100 text-neutral-700';
-    
-    switch (subscription.subscription_status) {
-      case 'active':
-        return 'bg-success-100 text-success-700';
-      case 'trialing':
-        return 'bg-primary-100 text-primary-700';
-      case 'past_due':
-        return 'bg-warning-100 text-warning-700';
-      case 'canceled':
-        return 'bg-error-100 text-error-700';
-      default:
-        return 'bg-neutral-100 text-neutral-700';
-    }
-  };
+export const ProfileCard: React.FC = () => {
+  const { user } = useAuth();
 
   return (
     <Card className="p-6">
       <div className="space-y-6">
         {/* Profile Picture and Basic Info */}
-        <ProfilePictureUpload />
-
-        {/* Account Status */}
-        <div className="border-t border-neutral-200 pt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-neutral-800">Account Status</h4>
-            <div className="flex items-center space-x-2">
-              {subscription?.subscription_status === 'active' && (
-                <Crown className="h-4 w-4 text-warning-500" />
-              )}
-              <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSubscriptionColor()}`}>
-                {getSubscriptionDisplay()}
-              </span>
-            </div>
-          </div>
-          
-          <div className="space-y-2 text-sm text-neutral-600">
-            <div className="flex justify-between">
-              <span>Member since</span>
-              <span>January 2024</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Account type</span>
-              <span>Personal</span>
-            </div>
-            {subscription?.current_period_end && (
-              <div className="flex justify-between">
-                <span>Next billing</span>
-                <span>{new Date(subscription.current_period_end * 1000).toLocaleDateString()}</span>
+        <div className="flex items-center space-x-4">
+          <div className="relative">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name}
+                className="h-20 w-20 rounded-full object-cover border-4 border-white shadow-lg"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-full bg-neutral-200 flex items-center justify-center border-4 border-white shadow-lg">
+                <User className="h-8 w-8 text-neutral-400" />
               </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-lg font-semibold text-neutral-800">{user?.name}</h3>
+            <p className="text-neutral-600">{user?.email}</p>
+            {user?.voltTag && (
+              <p className="text-sm text-primary-600 font-mono">{user.voltTag}</p>
             )}
           </div>
         </div>
@@ -115,5 +70,3 @@ const ProfileCard: React.FC = () => {
     </Card>
   );
 };
-
-export default ProfileCard;

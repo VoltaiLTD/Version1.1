@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { RefreshCw } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import Button from '../ui/Button';
+import { useWallet } from '../../hooks/useWallet';
+import { Button } from '../ui/Button';
 
-const SyncButton: React.FC = () => {
-  const { syncData, syncStatus } = useApp();
+export const SyncButton: React.FC = () => {
+  const { syncData, syncStatus } = useWallet();
   const [isSyncing, setIsSyncing] = useState(false);
   
   const handleSync = async () => {
@@ -33,5 +33,3 @@ const SyncButton: React.FC = () => {
     </Button>
   );
 };
-
-export default SyncButton;

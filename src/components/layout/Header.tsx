@@ -1,12 +1,12 @@
 import React from 'react';
-import { BatteryMedium, Menu, Bell, Zap } from 'lucide-react';
+import { Zap, Bell, Menu } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { useApp } from '../../context/AppContext';
-import Button from '../ui/Button';
-import SyncStatus from '../wallet/SyncStatus';
+import { useAuth } from '../../hooks/useAuth';
+import { Button } from '../ui/Button';
+import { SyncStatus } from '../wallet/SyncStatus';
 
-const Header: React.FC = () => {
-  const { user, isAuthenticated, logout } = useApp();
+export const Header: React.FC = () => {
+  const { user, isAuthenticated, logout } = useAuth();
   
   return (
     <header className="bg-white shadow-sm py-4">
@@ -57,14 +57,8 @@ const Header: React.FC = () => {
               <Menu className="h-6 w-6 text-neutral-600" />
             </button>
           </div>
-        ) : (
-          <div className="flex items-center space-x-2">
-            <BatteryMedium className="h-6 w-6 text-secondary-500" />
-          </div>
-        )}
+        ) : null}
       </div>
     </header>
   );
 };
-
-export default Header;

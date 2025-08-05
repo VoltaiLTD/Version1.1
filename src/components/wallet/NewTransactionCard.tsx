@@ -1,25 +1,21 @@
-import React, { useState, memo } from 'react';
-import { PlusCircle, QrCode, Smartphone } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
-import Card from '../ui/Card';
-import Button from '../ui/Button';
-import QRPayment from './QRPayment';
-import NFCPayment from './NFCPayment';
+import React, { useState } from 'react';
+import { PlusCircle } from 'lucide-react';
+import { useWallet } from '../../hooks/useWallet';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 import { validateTransaction } from '../../utils/validation';
 
 const categories = [
   'Food', 'Dining', 'Transport', 'Shopping', 'Entertainment', 'Housing', 'Utilities', 'Transfer', 'Other'
 ];
 
-const NewTransactionCard: React.FC = memo(() => {
-  const { makeOfflineTransaction, syncStatus, offlineSettings } = useApp();
+export const NewTransactionCard: React.FC = () => {
+  const { makeTransaction, syncStatus, offlineSettings } = useWallet();
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('Other');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [showQR, setShowQR] = useState(false);
-  const [showNFC, setShowNFC] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -34,7 +30,7 @@ const NewTransactionCard: React.FC = memo(() => {
       });
       
       setIsLoading(true);
-      await makeOfflineTransaction(
+      await makeTransaction(
         validatedData.amount,
         validatedData.description,
         validatedData.category
@@ -55,31 +51,11 @@ const NewTransactionCard: React.FC = memo(() => {
     return null;
   }
   
-  if (showQR) {
-    return (
-      <QRPayment 
-        amount={parseFloat(amount)}
-        description={description}
-        onComplete={() => setShowQR(false)} 
-      />
-    );
-  }
-
-  if (showNFC) {
-    return (
-      <NFCPayment 
-        amount={parseFloat(amount)}
-        description={description}
-        onComplete={() => setShowNFC(false)} 
-      />
-    );
-  }
-  
   return (
     <Card className="p-6">
       {isExpanded ? (
         <form onSubmit={handleSubmit}>
-          <h2 className="text-lg font-semibold text-neutral-800 mb-4">New Offline Payment</h2>
+          <h2 className="text-lg font-semibold text-neutral-800 mb-4">New Payment</h2>
           
           {error && (
             <div className="mb-4 p-3 bg-error-50 text-error-500 rounded-lg text-sm">
@@ -105,7 +81,6 @@ const NewTransactionCard: React.FC = memo(() => {
                   min="0.01"
                   className="input-field pl-8"
                   required
-                  aria-label="Transaction amount"
                 />
               </div>
             </div>
@@ -122,7 +97,6 @@ const NewTransactionCard: React.FC = memo(() => {
                 className="input-field"
                 required
                 maxLength={100}
-                aria-label="Transaction description"
               />
             </div>
             
@@ -134,7 +108,6 @@ const NewTransactionCard: React.FC = memo(() => {
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 className="input-field"
-                aria-label="Transaction category"
               >
                 {categories.map((cat) => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -167,38 +140,14 @@ const NewTransactionCard: React.FC = memo(() => {
           </div>
         </form>
       ) : (
-        <div className="space-y-2">
-          <Button 
-            onClick={() => setIsExpanded(true)}
-            className="w-full"
-          >
-            <PlusCircle className="h-5 w-5 mr-2" />
-            New Payment
-          </Button>
-          
-          <Button
-            variant="outline"
-            onClick={() => setShowQR(true)}
-            className="w-full"
-          >
-            <QrCode className="h-5 w-5 mr-2" />
-            QR Code Payment
-          </Button>
-
-          <Button
-            variant="outline"
-            onClick={() => setShowNFC(true)}
-            className="w-full"
-          >
-            <Smartphone className="h-5 w-5 mr-2" />
-            NFC Payment
-          </Button>
-        </div>
+        <Button 
+          onClick={() => setIsExpanded(true)}
+          className="w-full"
+        >
+          <PlusCircle className="h-5 w-5 mr-2" />
+          New Payment
+        </Button>
       )}
     </Card>
   );
-});
-
-NewTransactionCard.displayName = 'NewTransactionCard';
-
-export default NewTransactionCard;
+};

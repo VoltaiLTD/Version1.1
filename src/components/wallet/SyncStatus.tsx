@@ -1,10 +1,10 @@
 import React from 'react';
 import { Wifi, WifiOff, Clock } from 'lucide-react';
-import { useApp } from '../../context/AppContext';
+import { useWallet } from '../../hooks/useWallet';
 import { getTimeAgo } from '../../utils/formatters';
 
-const SyncStatus: React.FC = () => {
-  const { syncStatus } = useApp();
+export const SyncStatus: React.FC = () => {
+  const { syncStatus } = useWallet();
   const { isOnline, lastSynced, pendingTransactionsCount } = syncStatus;
   
   return (
@@ -36,5 +36,3 @@ const SyncStatus: React.FC = () => {
     </div>
   );
 };
-
-export default SyncStatus;
