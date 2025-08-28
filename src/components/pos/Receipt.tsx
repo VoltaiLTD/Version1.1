@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Download, Mail, Print } from 'lucide-react';
+import { X, Download, Mail, Printer as Print } from 'lucide-react';
 import { Card } from '../ui/Card';
 import { Button } from '../ui/Button';
 import { formatCurrency, formatDatetime } from '../../utils/formatters';
