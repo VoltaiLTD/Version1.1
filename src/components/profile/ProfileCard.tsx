@@ -1,5 +1,5 @@
 import React from 'react';
-import { Settings, Shield, Bell, DollarSign, User } from 'lucide-react';
+import { Settings, Shield, Bell, DollarSign, User, Palette } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Card } from '../ui/Card';
@@ -62,6 +62,12 @@ export const ProfileCard: React.FC = () => {
               <Button variant="outline" size="sm" className="w-full justify-start">
                 <DollarSign className="h-4 w-4 mr-2" />
                 Transfer Limits
+              </Button>
+            </Link>
+            <Link to="/settings/appearance">
+              <Button variant="outline" size="sm" className="w-full justify-start">
+                <Palette className="h-4 w-4 mr-2" />
+                Appearance
               </Button>
             </Link>
           </div>

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Zap, Bell, Menu } from 'lucide-react';
+import { Zap, Bell, Menu, CreditCard } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
@@ -23,6 +23,13 @@ export const Header: React.FC = () => {
             <SyncStatus />
             
             <div className="hidden md:flex items-center space-x-4">
+              <Link to="/pos">
+                <Button variant="outline" size="sm">
+                  <CreditCard className="h-4 w-4 mr-2" />
+                  POS
+                </Button>
+              </Link>
+              
               <div className="relative">
                 <Bell className="h-5 w-5 text-neutral-600 cursor-pointer hover:text-primary-500" />
                 <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent-500 text-white text-xs flex items-center justify-center">
