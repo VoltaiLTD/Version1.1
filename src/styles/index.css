@@ -8,7 +8,7 @@
   }
   
   body {
-    @apply bg-neutral-50 text-neutral-800;
+    @apply bg-gray-50 text-neutral-800;
   }
   
   h1, h2, h3, h4, h5, h6 {
@@ -37,20 +37,25 @@
     @apply bg-white rounded-xl shadow-card transition-all duration-300 hover:shadow-card-hover;
   }
   
+  /* Global button styles for mobile-first responsive design */
   .btn {
-    @apply px-4 py-2 rounded-lg font-medium transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2;
+    @apply inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed h-11 md:h-10 px-4 md:px-5 text-base md:text-sm w-full md:w-auto;
   }
   
   .btn-primary {
-    @apply btn bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500;
+    @apply btn bg-black text-white hover:bg-black/90 focus-visible:ring-black;
   }
   
   .btn-secondary {
-    @apply btn bg-secondary-500 text-white hover:bg-secondary-600 focus:ring-secondary-500;
+    @apply btn bg-white text-neutral-900 border border-neutral-300 hover:bg-neutral-100 focus-visible:ring-neutral-400;
   }
   
   .btn-outline {
-    @apply btn border border-neutral-300 text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-500;
+    @apply btn border border-neutral-300 text-neutral-700 hover:bg-neutral-100 focus-visible:ring-neutral-500;
+  }
+  
+  .btn-ghost {
+    @apply btn bg-transparent hover:bg-gray-100;
   }
   
   .sync-pulse {
@@ -64,7 +69,7 @@
   }
   
   .input-field {
-    @apply w-full px-4 py-2 rounded-lg border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent;
+    @apply w-full px-4 py-3 md:py-2 rounded-lg border border-neutral-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-base md:text-sm;
   }
 }
 

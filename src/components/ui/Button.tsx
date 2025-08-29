@@ -1,46 +1,52 @@
-import React from 'react';
+import React, { forwardRef, ButtonHTMLAttributes } from 'react';
+import clsx from 'clsx';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'outline' | 'text';
   size?: 'sm' | 'md' | 'lg';
+  fullOnMobile?: boolean;
   isLoading?: boolean;
   children: React.ReactNode;
 }
 
-export const Button: React.FC<ButtonProps> = ({
+const Button = forwardRef<HTMLButtonElement, ButtonProps>(({
   variant = 'primary',
   size = 'md',
+  fullOnMobile = true,
   isLoading = false,
   children,
   className = '',
   disabled,
   ...props
-}) => {
-  const baseClasses = 'font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 inline-flex items-center justify-center';
+}, ref) => {
+  const baseClasses = 'inline-flex items-center justify-center rounded-xl font-medium transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
   
   const variantClasses = {
-    primary: 'bg-primary-500 text-white hover:bg-primary-600 focus:ring-primary-500',
-    secondary: 'bg-secondary-500 text-white hover:bg-secondary-600 focus:ring-secondary-500',
-    outline: 'border border-neutral-300 text-neutral-700 hover:bg-neutral-100 focus:ring-neutral-500',
-    text: 'text-primary-600 hover:text-primary-700 hover:bg-primary-50 focus:ring-primary-500',
+    primary: 'bg-black text-white hover:bg-black/90 focus-visible:ring-black',
+    secondary: 'bg-white text-neutral-900 border border-neutral-300 hover:bg-neutral-100 focus-visible:ring-neutral-400',
+    outline: 'border border-neutral-300 text-neutral-700 hover:bg-neutral-100 focus-visible:ring-neutral-500',
+    text: 'text-primary-600 hover:text-primary-700 hover:bg-primary-50 focus-visible:ring-primary-500',
   };
   
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2',
-    lg: 'px-6 py-3 text-lg',
+    sm: 'h-9 px-3 text-sm',
+    md: 'h-11 md:h-10 px-4 md:px-5 text-base md:text-sm',
+    lg: 'h-12 px-6 text-lg',
   };
   
-  const computedClasses = `
-    ${baseClasses}
-    ${variantClasses[variant]}
-    ${sizeClasses[size]}
-    ${isLoading || disabled ? 'opacity-70 cursor-not-allowed' : ''}
-    ${className}
-  `;
+  const responsiveClasses = fullOnMobile ? 'w-full md:w-auto' : '';
+  
+  const computedClasses = clsx(
+    baseClasses,
+    variantClasses[variant],
+    sizeClasses[size],
+    responsiveClasses,
+    className
+  );
 
   return (
     <button 
+      ref={ref}
       className={computedClasses} 
       disabled={isLoading || disabled} 
       {...props}
@@ -56,4 +62,8 @@ export const Button: React.FC<ButtonProps> = ({
       ) : children}
     </button>
   );
-};
+});
+
+Button.displayName = 'Button';
+
+export { Button };

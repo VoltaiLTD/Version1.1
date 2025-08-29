@@ -1,10 +1,12 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, X, Upload, Edit3, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Camera, X, Upload, Edit3, Check, AlertCircle, Loader2, Shield } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
-import { ocrService, CardOCRResult, OCRProgress, validateCardNumber, formatCardNumber, maskCardNumber, parseExpiry } from '../../lib/ocr';
-import { CardData } from '../../lib/payments/provider';
+import { ocrService, CardOCRResult, OCRProgress } from '../../lib/ocr';
+import { CardData, SecureCardHandler } from '../../lib/payments/provider';
+import { validateCardNumber, formatCardNumber, maskCardNumber, parseExpiry } from '../../lib/security/luhn';
+import { zeroizeCardData } from '../../lib/security/redaction';
 
 interface ScannerModalProps {
   isOpen: boolean;
@@ -30,7 +32,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Form state for manual entry and editing
+  // Form state for manual entry and editing (temporary only)
   const [formData, setFormData] = useState({
     number: '',
     name: '',
@@ -49,6 +51,23 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       cleanup();
     };
   }, [isOpen, step]);
+
+  // Cleanup form data when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      zeroizeFormData();
+    }
+  }, [isOpen]);
+
+  const zeroizeFormData = () => {
+    setFormData({
+      number: '',
+      name: '',
+      expiryMonth: '',
+      expiryYear: '',
+      cvv: ''
+    });
+  };
 
   const initializeCamera = async () => {
     try {
@@ -76,6 +95,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
+    zeroizeFormData();
   };
 
   const captureImage = useCallback(async () => {
@@ -150,7 +170,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       name: result.name || '',
       expiryMonth: expiry?.month || '',
       expiryYear: expiry?.year || '',
-      cvv: ''
+      cvv: '' // Never auto-filled for security
     });
   };
 
@@ -181,6 +201,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       return;
     }
 
+    // Create secure card handler
     const cardData: CardData = {
       number: formData.number.replace(/\s/g, ''),
       expiryMonth: formData.expiryMonth.padStart(2, '0'),
@@ -189,6 +210,10 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
       name: formData.name.trim().toUpperCase()
     };
 
+    // Immediately zeroize form data
+    zeroizeFormData();
+    
+    // Pass to parent (which will handle secure processing)
     onCardScanned(cardData);
     handleClose();
   };
@@ -200,13 +225,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
     setOcrProgress(null);
     setScannedResult(null);
     setError(null);
-    setFormData({
-      number: '',
-      name: '',
-      expiryMonth: '',
-      expiryYear: '',
-      cvv: ''
-    });
     onClose();
   };
 
@@ -249,14 +267,16 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           onClick={captureImage}
           disabled={isScanning}
           className="flex-1"
+          fullOnMobile={false}
         >
           <Camera className="h-4 w-4 mr-2" />
-          Capture Card
+          Capture
         </Button>
         <Button
           variant="outline"
           onClick={() => setStep('upload')}
           disabled={isScanning}
+          fullOnMobile={false}
         >
           <Upload className="h-4 w-4 mr-2" />
           Upload
@@ -265,6 +285,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           variant="outline"
           onClick={() => setStep('manual')}
           disabled={isScanning}
+          fullOnMobile={false}
         >
           <Edit3 className="h-4 w-4 mr-2" />
           Manual
@@ -289,6 +310,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           <Button
             onClick={() => fileInputRef.current?.click()}
             disabled={isScanning}
+            fullOnMobile={false}
           >
             Choose Image
           </Button>
@@ -338,6 +360,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           placeholder="1234 5678 9012 3456"
           maxLength={19}
           className="input-field font-mono"
+          autoComplete="off"
         />
       </div>
 
@@ -351,6 +374,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           onChange={(e) => handleInputChange('name', e.target.value)}
           placeholder="JOHN DOE"
           className="input-field uppercase"
+          autoComplete="off"
         />
       </div>
 
@@ -403,6 +427,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
             placeholder="123"
             maxLength={4}
             className="input-field font-mono"
+            autoComplete="off"
           />
         </div>
       </div>
@@ -428,16 +453,26 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
   const renderReviewStep = () => (
     <div className="space-y-6">
       {scannedResult && (
-        <div className="bg-neutral-50 p-4 rounded-lg">
+        <div className="bg-success-50 p-4 rounded-lg">
           <div className="flex items-center space-x-2 mb-2">
             <Check className="h-4 w-4 text-success-500" />
             <span className="text-sm font-medium">Scanned with {scannedResult.confidence}% confidence</span>
           </div>
-          <p className="text-xs text-neutral-600">
+          <p className="text-xs text-success-600">
             Please review and edit the information below if needed.
           </p>
         </div>
       )}
+
+      <div className="bg-neutral-50 p-4 rounded-lg">
+        <div className="flex items-center space-x-2 mb-2">
+          <Shield className="h-4 w-4 text-primary-500" />
+          <span className="text-sm font-medium text-primary-700">Security Notice</span>
+        </div>
+        <p className="text-xs text-neutral-600">
+          Card information is processed securely and never stored. Data is immediately destroyed after tokenization.
+        </p>
+      </div>
 
       <div className="space-y-4">
         <div>
@@ -449,6 +484,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
             value={formatCardNumber(formData.number)}
             onChange={(e) => handleInputChange('number', e.target.value.replace(/\s/g, ''))}
             className="input-field font-mono"
+            autoComplete="off"
           />
           <p className="text-xs text-neutral-500 mt-1">
             Preview: {formData.number ? maskCardNumber(formData.number) : 'Enter card number'}
@@ -464,6 +500,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
             value={formData.name}
             onChange={(e) => handleInputChange('name', e.target.value)}
             className="input-field uppercase"
+            autoComplete="off"
           />
         </div>
 
@@ -515,6 +552,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
               onChange={(e) => handleInputChange('cvv', e.target.value.replace(/\D/g, ''))}
               maxLength={4}
               className="input-field font-mono"
+              autoComplete="off"
             />
           </div>
         </div>
@@ -533,7 +571,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
           className="flex-1"
         >
           <Check className="h-4 w-4 mr-2" />
-          Use This Card
+          Process Payment
         </Button>
       </div>
     </div>
@@ -553,7 +591,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
-            className="w-full max-w-md"
+            className="w-full max-w-md max-h-[90vh] overflow-y-auto"
           >
             <Card className="p-6">
               <div className="flex items-center justify-between mb-6">
@@ -562,6 +600,7 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
                   variant="outline"
                   size="sm"
                   onClick={handleClose}
+                  fullOnMobile={false}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -573,13 +612,6 @@ export const ScannerModal: React.FC<ScannerModalProps> = ({
                   <span className="text-sm">{error}</span>
                 </div>
               )}
-
-              <div className="mb-4">
-                <div className="bg-neutral-100 p-3 rounded-lg text-sm text-neutral-600">
-                  <p className="font-medium mb-1">Privacy Notice:</p>
-                  <p>Card information is processed locally and securely. We never store your full card number.</p>
-                </div>
-              </div>
 
               {step === 'camera' && renderCameraStep()}
               {step === 'upload' && renderUploadStep()}

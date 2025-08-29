@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../ui/Button';
 import { SyncStatus } from '../wallet/SyncStatus';
+import { MainNav } from '../nav/MainNav';
 
 export const Header: React.FC = () => {
   const { user, isAuthenticated, logout } = useAuth();
@@ -19,17 +20,12 @@ export const Header: React.FC = () => {
         </Link>
         
         {isAuthenticated ? (
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center justify-between flex-1">
+            <MainNav />
+            
+            <div className="flex items-center space-x-4">
             <SyncStatus />
             
-            <div className="hidden md:flex items-center space-x-4">
-              <Link to="/pos">
-                <Button variant="outline" size="sm">
-                  <CreditCard className="h-4 w-4 mr-2" />
-                  POS
-                </Button>
-              </Link>
-              
               <div className="relative">
                 <Bell className="h-5 w-5 text-neutral-600 cursor-pointer hover:text-primary-500" />
                 <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-accent-500 text-white text-xs flex items-center justify-center">
@@ -41,6 +37,7 @@ export const Header: React.FC = () => {
                 variant="outline" 
                 size="sm" 
                 onClick={logout}
+                fullOnMobile={false}
               >
                 Sign Out
               </Button>
@@ -59,10 +56,6 @@ export const Header: React.FC = () => {
                 )}
               </div>
             </div>
-            
-            <button className="md:hidden">
-              <Menu className="h-6 w-6 text-neutral-600" />
-            </button>
           </div>
         ) : null}
       </div>

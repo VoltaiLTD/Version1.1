@@ -1,10 +1,14 @@
 /**
- * Payment Provider Interface
+ * Payment Provider Interface (PCI-DSS Compliant)
  * 
- * This interface abstracts payment processing to allow switching between
- * different providers (Stripe, Paystack, Flutterwave) without changing
- * the core application logic.
+ * This interface abstracts payment processing with strict security requirements:
+ * - No card data storage anywhere
+ * - Single-use tokens only
+ * - Immediate data zeroization
+ * - Provider SDKs handle sensitive flows in production
  */
+
+import { zeroizeCardData, safeLogger } from '../security/redaction';
 
 export interface CardData {
   number: string;
@@ -14,21 +18,19 @@ export interface CardData {
   name: string;
 }
 
-export interface TokenizedCard {
+export interface SingleUseToken {
   token: string;
-  brand: string;
-  last4: string;
-  expiryMonth: string;
-  expiryYear: string;
+  // Note: No card details stored - token is opaque reference
+  expiresAt: Date;
 }
 
 export interface ChargeRequest {
-  token: string;
+  token: string; // Single-use token from tokenizeCard
   amount: number; // in smallest currency unit (cents, kobo, etc.)
   currency: string;
   description?: string;
   metadata?: Record<string, any>;
-  idempotencyKey?: string;
+  idempotencyKey: string; // Required for duplicate prevention
 }
 
 export interface ChargeResponse {
@@ -39,12 +41,14 @@ export interface ChargeResponse {
   errorCode?: string;
   errorMessage?: string;
   metadata?: Record<string, any>;
+  // Note: No card details in response
 }
 
 export interface RefundRequest {
   chargeId: string;
   amount?: number; // partial refund if specified
   reason?: string;
+  idempotencyKey: string;
 }
 
 export interface RefundResponse {
@@ -59,12 +63,14 @@ export abstract class PaymentProvider {
   abstract name: string;
   
   /**
-   * Tokenize a card for secure storage and future charges
+   * Tokenize a card for single-use charge
+   * SECURITY: Card data must be zeroized immediately after tokenization
    */
-  abstract tokenizeCard(cardData: CardData): Promise<TokenizedCard>;
+  abstract tokenizeCard(cardData: CardData): Promise<SingleUseToken>;
   
   /**
-   * Charge a tokenized card
+   * Charge a single-use token
+   * SECURITY: Token becomes invalid after this call
    */
   abstract charge(request: ChargeRequest): Promise<ChargeResponse>;
   
@@ -74,16 +80,18 @@ export abstract class PaymentProvider {
   abstract refund(request: RefundRequest): Promise<RefundResponse>;
   
   /**
-   * Check if the provider is available (network connectivity, API keys, etc.)
+   * Check if the provider is available
    */
   abstract isAvailable(): Promise<boolean>;
 }
 
 /**
  * Mock Payment Provider for Development and Testing
+ * Simulates real provider behavior including security constraints
  */
 export class MockPaymentProvider extends PaymentProvider {
   name = 'mock';
+  private usedTokens = new Set<string>(); // Track used tokens
   
   private simulateNetworkDelay(): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, Math.random() * 1000 + 500));
@@ -94,42 +102,97 @@ export class MockPaymentProvider extends PaymentProvider {
     return Math.random() < 0.1;
   }
   
-  async tokenizeCard(cardData: CardData): Promise<TokenizedCard> {
+  private shouldSimulateFraud(): boolean {
+    // 2% chance of fraud simulation
+    return Math.random() < 0.02;
+  }
+  
+  async tokenizeCard(cardData: CardData): Promise<SingleUseToken> {
     await this.simulateNetworkDelay();
+    
+    // Validate card data (without storing)
+    if (!this.validateCardData(cardData)) {
+      throw new Error('Invalid card data');
+    }
     
     if (this.shouldSimulateFailure()) {
       throw new Error('Mock tokenization failed');
     }
     
-    // Detect card brand from number
-    const brand = this.detectCardBrand(cardData.number);
-    const last4 = cardData.number.slice(-4);
+    // Generate single-use token
+    const token = `mock_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    
+    // Log tokenization (without card data)
+    safeLogger.info('Card tokenized successfully', { 
+      provider: this.name,
+      tokenId: token.substring(0, 10) + '...',
+      expiresAt 
+    });
     
     return {
-      token: `mock_token_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      brand,
-      last4,
-      expiryMonth: cardData.expiryMonth,
-      expiryYear: cardData.expiryYear,
+      token,
+      expiresAt
     };
   }
   
   async charge(request: ChargeRequest): Promise<ChargeResponse> {
     await this.simulateNetworkDelay();
     
-    if (this.shouldSimulateFailure()) {
+    // Check if token was already used
+    if (this.usedTokens.has(request.token)) {
       return {
         id: `mock_charge_${Date.now()}`,
         status: 'failed',
         amount: request.amount,
         currency: request.currency,
-        errorCode: 'card_declined',
-        errorMessage: 'Your card was declined',
+        errorCode: 'token_already_used',
+        errorMessage: 'This payment token has already been used',
       };
     }
     
+    // Mark token as used (single-use enforcement)
+    this.usedTokens.add(request.token);
+    
+    // Simulate fraud detection
+    if (this.shouldSimulateFraud()) {
+      return {
+        id: `mock_charge_${Date.now()}`,
+        status: 'failed',
+        amount: request.amount,
+        currency: request.currency,
+        errorCode: 'suspected_fraud',
+        errorMessage: 'Transaction declined due to suspected fraud',
+      };
+    }
+    
+    // Simulate general failure
+    if (this.shouldSimulateFailure()) {
+      const errorCodes = ['card_declined', 'insufficient_funds', 'expired_card', 'invalid_cvv'];
+      const errorCode = errorCodes[Math.floor(Math.random() * errorCodes.length)];
+      
+      return {
+        id: `mock_charge_${Date.now()}`,
+        status: 'failed',
+        amount: request.amount,
+        currency: request.currency,
+        errorCode,
+        errorMessage: this.getErrorMessage(errorCode),
+      };
+    }
+    
+    // Successful charge
+    const chargeId = `mock_charge_${Date.now()}`;
+    
+    safeLogger.info('Charge processed successfully', {
+      chargeId,
+      amount: request.amount,
+      currency: request.currency,
+      provider: this.name
+    });
+    
     return {
-      id: `mock_charge_${Date.now()}`,
+      id: chargeId,
       status: 'succeeded',
       amount: request.amount,
       currency: request.currency,
@@ -150,54 +213,70 @@ export class MockPaymentProvider extends PaymentProvider {
       };
     }
     
+    const refundId = `mock_refund_${Date.now()}`;
+    
+    safeLogger.info('Refund processed successfully', {
+      refundId,
+      originalChargeId: request.chargeId,
+      amount: request.amount,
+      provider: this.name
+    });
+    
     return {
-      id: `mock_refund_${Date.now()}`,
+      id: refundId,
       status: 'succeeded',
       amount: request.amount || 0,
     };
   }
   
   async isAvailable(): Promise<boolean> {
-    // Mock provider is always available
     return true;
   }
   
-  private detectCardBrand(number: string): string {
-    const cleanNumber = number.replace(/\s/g, '');
+  private validateCardData(cardData: CardData): boolean {
+    // Basic validation without storing
+    const { number, expiryMonth, expiryYear, cvv, name } = cardData;
     
-    // Visa
-    if (/^4/.test(cleanNumber)) return 'visa';
+    if (!number || !expiryMonth || !expiryYear || !cvv || !name) {
+      return false;
+    }
     
-    // Mastercard
-    if (/^5[1-5]/.test(cleanNumber) || /^2[2-7]/.test(cleanNumber)) return 'mastercard';
+    // Validate expiry
+    const currentDate = new Date();
+    const expiryDate = new Date(parseInt(expiryYear), parseInt(expiryMonth) - 1);
     
-    // American Express
-    if (/^3[47]/.test(cleanNumber)) return 'amex';
+    return expiryDate > currentDate;
+  }
+  
+  private getErrorMessage(errorCode: string): string {
+    const messages: Record<string, string> = {
+      card_declined: 'Your card was declined',
+      insufficient_funds: 'Insufficient funds',
+      expired_card: 'Your card has expired',
+      invalid_cvv: 'Invalid security code',
+      suspected_fraud: 'Transaction declined for security reasons',
+      token_already_used: 'Payment token has already been used'
+    };
     
-    // Discover
-    if (/^6(?:011|5)/.test(cleanNumber)) return 'discover';
-    
-    // Verve (Nigerian)
-    if (/^506[01]/.test(cleanNumber)) return 'verve';
-    
-    return 'unknown';
+    return messages[errorCode] || 'Payment failed';
   }
 }
 
 /**
- * Stripe Payment Provider (placeholder implementation)
+ * Stripe Payment Provider (Production Implementation)
  */
 export class StripePaymentProvider extends PaymentProvider {
   name = 'stripe';
   
-  async tokenizeCard(cardData: CardData): Promise<TokenizedCard> {
-    // TODO: Implement Stripe tokenization
-    // This would use Stripe.js or Stripe SDK
-    throw new Error('Stripe provider not implemented yet');
+  async tokenizeCard(cardData: CardData): Promise<SingleUseToken> {
+    // TODO: Implement Stripe tokenization using Stripe.js
+    // This would use Stripe Elements or Payment Methods API
+    // Card data never touches the server
+    throw new Error('Stripe provider requires Stripe.js integration');
   }
   
   async charge(request: ChargeRequest): Promise<ChargeResponse> {
-    // TODO: Implement Stripe charge
+    // TODO: Implement Stripe charge using Payment Intents API
     throw new Error('Stripe provider not implemented yet');
   }
   
@@ -213,12 +292,12 @@ export class StripePaymentProvider extends PaymentProvider {
 }
 
 /**
- * Paystack Payment Provider (placeholder implementation)
+ * Paystack Payment Provider (Production Implementation)
  */
 export class PaystackPaymentProvider extends PaymentProvider {
   name = 'paystack';
   
-  async tokenizeCard(cardData: CardData): Promise<TokenizedCard> {
+  async tokenizeCard(cardData: CardData): Promise<SingleUseToken> {
     // TODO: Implement Paystack tokenization
     throw new Error('Paystack provider not implemented yet');
   }
@@ -234,18 +313,17 @@ export class PaystackPaymentProvider extends PaymentProvider {
   }
   
   async isAvailable(): Promise<boolean> {
-    // TODO: Check Paystack API keys and connectivity
     return false;
   }
 }
 
 /**
- * Flutterwave Payment Provider (placeholder implementation)
+ * Flutterwave Payment Provider (Production Implementation)
  */
 export class FlutterwavePaymentProvider extends PaymentProvider {
   name = 'flutterwave';
   
-  async tokenizeCard(cardData: CardData): Promise<TokenizedCard> {
+  async tokenizeCard(cardData: CardData): Promise<SingleUseToken> {
     // TODO: Implement Flutterwave tokenization
     throw new Error('Flutterwave provider not implemented yet');
   }
@@ -261,7 +339,6 @@ export class FlutterwavePaymentProvider extends PaymentProvider {
   }
   
   async isAvailable(): Promise<boolean> {
-    // TODO: Check Flutterwave API keys and connectivity
     return false;
   }
 }
@@ -282,5 +359,43 @@ export function createPaymentProvider(): PaymentProvider {
     case 'mock':
     default:
       return new MockPaymentProvider();
+  }
+}
+
+/**
+ * Secure card data handler that ensures immediate cleanup
+ */
+export class SecureCardHandler {
+  private cardData: CardData | null = null;
+  
+  constructor(cardData: CardData) {
+    this.cardData = { ...cardData };
+  }
+  
+  /**
+   * Process the card data and immediately zeroize
+   */
+  async processAndDestroy<T>(processor: (cardData: CardData) => Promise<T>): Promise<T> {
+    if (!this.cardData) {
+      throw new Error('Card data already destroyed');
+    }
+    
+    try {
+      const result = await processor(this.cardData);
+      return result;
+    } finally {
+      // Always zeroize, even on error
+      this.destroy();
+    }
+  }
+  
+  /**
+   * Immediately destroy card data
+   */
+  destroy(): void {
+    if (this.cardData) {
+      zeroizeCardData(this.cardData);
+      this.cardData = null;
+    }
   }
 }

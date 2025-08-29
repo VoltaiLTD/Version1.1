@@ -1,28 +1,51 @@
 /**
- * Offline Transaction Queue
+ * Offline Transaction Queue (Security-Compliant)
  * 
- * This service manages offline transactions using IndexedDB for persistence
- * and implements retry logic with exponential backoff when connectivity is restored.
+ * IMPORTANT SECURITY NOTES:
+ * - NO card data is stored in offline queue
+ * - Only non-sensitive payment intents are queued
+ * - Card re-entry required when back online
+ * - All sensitive data is immediately zeroized
  */
 
 import { openDB, DBSchema, IDBPDatabase } from 'idb';
 import { ChargeRequest, ChargeResponse } from '../payments/provider';
+import { safeLogger } from '../security/redaction';
+
+export interface PaymentIntentDraft {
+  id: string;
+  userId: string;
+  amount: number;
+  currency: string;
+  description: string;
+  metadata?: Record<string, any>;
+  createdAt: number;
+  // NOTE: NO card data stored here - security requirement
+}
 
 export interface QueuedTransaction {
   id: string;
   userId: string;
-  request: ChargeRequest;
-  encryptedCardData?: string; // Only if tokenization failed offline
+  request: Omit<ChargeRequest, 'token'>; // No token stored
   attempts: number;
   maxAttempts: number;
   nextRetry: number;
   createdAt: number;
   updatedAt: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'draft' | 'pending' | 'processing' | 'completed' | 'failed';
   error?: string;
+  requiresCardReentry: boolean; // Always true for security
 }
 
 interface OfflineQueueDB extends DBSchema {
+  payment_intents: {
+    key: string;
+    value: PaymentIntentDraft;
+    indexes: {
+      'by-user': string;
+      'by-created': number;
+    };
+  };
   transactions: {
     key: string;
     value: QueuedTransaction;
@@ -32,20 +55,12 @@ interface OfflineQueueDB extends DBSchema {
       'by-next-retry': number;
     };
   };
-  encryption_keys: {
-    key: string;
-    value: {
-      key: CryptoKey;
-      createdAt: number;
-    };
-  };
 }
 
 class OfflineQueueService {
   private db: IDBPDatabase<OfflineQueueDB> | null = null;
   private retryTimer: NodeJS.Timeout | null = null;
   private isProcessing = false;
-  private sessionKey: CryptoKey | null = null;
 
   /**
    * Initialize the offline queue database
@@ -54,177 +69,132 @@ class OfflineQueueService {
     if (this.db) return;
 
     try {
-      this.db = await openDB<OfflineQueueDB>('voltai-offline-queue', 1, {
-        upgrade(db) {
-          // Create transactions store
-          const transactionStore = db.createObjectStore('transactions', {
-            keyPath: 'id',
-          });
-          
-          transactionStore.createIndex('by-user', 'userId');
-          transactionStore.createIndex('by-status', 'status');
-          transactionStore.createIndex('by-next-retry', 'nextRetry');
+      this.db = await openDB<OfflineQueueDB>('voltai-offline-queue', 2, {
+        upgrade(db, oldVersion) {
+          // Create payment intents store
+          if (!db.objectStoreNames.contains('payment_intents')) {
+            const intentStore = db.createObjectStore('payment_intents', {
+              keyPath: 'id',
+            });
+            
+            intentStore.createIndex('by-user', 'userId');
+            intentStore.createIndex('by-created', 'createdAt');
+          }
 
-          // Create encryption keys store
-          db.createObjectStore('encryption_keys', {
-            keyPath: 'key',
-          });
+          // Create transactions store
+          if (!db.objectStoreNames.contains('transactions')) {
+            const transactionStore = db.createObjectStore('transactions', {
+              keyPath: 'id',
+            });
+            
+            transactionStore.createIndex('by-user', 'userId');
+            transactionStore.createIndex('by-status', 'status');
+            transactionStore.createIndex('by-next-retry', 'nextRetry');
+          }
         },
       });
 
-      // Generate session encryption key
-      await this.generateSessionKey();
-
       // Start retry processor
       this.startRetryProcessor();
+      
+      safeLogger.info('Offline queue initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize offline queue:', error);
+      safeLogger.error('Failed to initialize offline queue:', error);
       throw new Error('Offline queue initialization failed');
     }
   }
 
   /**
-   * Generate a session-specific encryption key for sensitive data
+   * Create a payment intent draft (no card data)
+   * This is what gets stored when offline
    */
-  private async generateSessionKey(): Promise<void> {
-    try {
-      this.sessionKey = await crypto.subtle.generateKey(
-        {
-          name: 'AES-GCM',
-          length: 256,
-        },
-        false, // Not extractable for security
-        ['encrypt', 'decrypt']
-      );
-    } catch (error) {
-      console.error('Failed to generate session key:', error);
-      throw new Error('Encryption key generation failed');
-    }
-  }
-
-  /**
-   * Encrypt sensitive card data for temporary storage
-   */
-  private async encryptCardData(data: string): Promise<string> {
-    if (!this.sessionKey) {
-      throw new Error('Session key not available');
-    }
-
-    try {
-      const encoder = new TextEncoder();
-      const dataBuffer = encoder.encode(data);
-      const iv = crypto.getRandomValues(new Uint8Array(12));
-
-      const encryptedBuffer = await crypto.subtle.encrypt(
-        {
-          name: 'AES-GCM',
-          iv,
-        },
-        this.sessionKey,
-        dataBuffer
-      );
-
-      // Combine IV and encrypted data
-      const combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
-      combined.set(iv);
-      combined.set(new Uint8Array(encryptedBuffer), iv.length);
-
-      return btoa(String.fromCharCode(...combined));
-    } catch (error) {
-      console.error('Encryption failed:', error);
-      throw new Error('Failed to encrypt card data');
-    }
-  }
-
-  /**
-   * Decrypt sensitive card data
-   */
-  private async decryptCardData(encryptedData: string): Promise<string> {
-    if (!this.sessionKey) {
-      throw new Error('Session key not available');
-    }
-
-    try {
-      const combined = new Uint8Array(
-        atob(encryptedData)
-          .split('')
-          .map(char => char.charCodeAt(0))
-      );
-
-      const iv = combined.slice(0, 12);
-      const encrypted = combined.slice(12);
-
-      const decryptedBuffer = await crypto.subtle.decrypt(
-        {
-          name: 'AES-GCM',
-          iv,
-        },
-        this.sessionKey,
-        encrypted
-      );
-
-      const decoder = new TextDecoder();
-      return decoder.decode(decryptedBuffer);
-    } catch (error) {
-      console.error('Decryption failed:', error);
-      throw new Error('Failed to decrypt card data');
-    }
-  }
-
-  /**
-   * Add a transaction to the offline queue
-   */
-  async queueTransaction(
+  async createPaymentIntentDraft(
     userId: string,
-    request: ChargeRequest,
-    cardData?: any
+    amount: number,
+    currency: string,
+    description: string,
+    metadata?: Record<string, any>
   ): Promise<string> {
     if (!this.db) {
       await this.initialize();
     }
 
-    const transactionId = `offline_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const intentId = `intent_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    let encryptedCardData: string | undefined;
-    if (cardData) {
-      encryptedCardData = await this.encryptCardData(JSON.stringify(cardData));
+    const draft: PaymentIntentDraft = {
+      id: intentId,
+      userId,
+      amount,
+      currency,
+      description,
+      metadata,
+      createdAt: Date.now(),
+    };
+
+    await this.db!.put('payment_intents', draft);
+    
+    safeLogger.info('Payment intent draft created', { intentId, amount, currency });
+    
+    return intentId;
+  }
+
+  /**
+   * Get payment intent drafts for a user
+   */
+  async getPaymentIntentDrafts(userId: string): Promise<PaymentIntentDraft[]> {
+    if (!this.db) {
+      await this.initialize();
     }
 
+    return this.db!.getAllFromIndex('payment_intents', 'by-user', userId);
+  }
+
+  /**
+   * Convert draft to transaction (when card is provided online)
+   */
+  async processPaymentIntentDraft(
+    intentId: string,
+    token: string
+  ): Promise<string> {
+    if (!this.db) {
+      await this.initialize();
+    }
+
+    const draft = await this.db!.get('payment_intents', intentId);
+    if (!draft) {
+      throw new Error('Payment intent draft not found');
+    }
+
+    const transactionId = `tx_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
     const queuedTransaction: QueuedTransaction = {
       id: transactionId,
-      userId,
+      userId: draft.userId,
       request: {
-        ...request,
-        idempotencyKey: request.idempotencyKey || transactionId,
+        amount: draft.amount,
+        currency: draft.currency,
+        description: draft.description,
+        metadata: draft.metadata,
+        idempotencyKey: transactionId,
       },
-      encryptedCardData,
       attempts: 0,
-      maxAttempts: 5,
+      maxAttempts: 3, // Reduced for security
       nextRetry: Date.now(),
       createdAt: Date.now(),
       updatedAt: Date.now(),
       status: 'pending',
+      requiresCardReentry: false, // Card just provided
     };
 
     await this.db!.put('transactions', queuedTransaction);
+    await this.db!.delete('payment_intents', intentId);
     
-    // Trigger immediate processing if online
+    // Process immediately if online
     if (navigator.onLine) {
       this.processQueue();
     }
 
     return transactionId;
-  }
-
-  /**
-   * Get all queued transactions for a user
-   */
-  async getQueuedTransactions(userId: string): Promise<QueuedTransaction[]> {
-    if (!this.db) {
-      await this.initialize();
-    }
-
-    return this.db!.getAllFromIndex('transactions', 'by-user', userId);
   }
 
   /**
@@ -236,8 +206,10 @@ class OfflineQueueService {
     }
 
     if (userId) {
-      const userTransactions = await this.getQueuedTransactions(userId);
-      return userTransactions.filter(t => t.status === 'pending' || t.status === 'processing').length;
+      const userTransactions = await this.db!.getAllFromIndex('transactions', 'by-user', userId);
+      return userTransactions.filter(t => 
+        t.status === 'pending' || t.status === 'processing'
+      ).length;
     }
 
     const allPending = await this.db!.getAllFromIndex('transactions', 'by-status', 'pending');
@@ -261,7 +233,7 @@ class OfflineQueueService {
       }
     }, 30000);
 
-    // Also listen for online events
+    // Listen for online events
     window.addEventListener('online', () => {
       if (!this.isProcessing) {
         this.processQueue();
@@ -271,6 +243,7 @@ class OfflineQueueService {
 
   /**
    * Process the offline queue
+   * NOTE: All queued transactions require card re-entry for security
    */
   async processQueue(): Promise<void> {
     if (!this.db || this.isProcessing || !navigator.onLine) {
@@ -287,113 +260,54 @@ class OfflineQueueService {
       const readyTransactions = pendingTransactions.filter(t => t.nextRetry <= now);
 
       for (const transaction of readyTransactions) {
-        await this.processTransaction(transaction);
+        // Mark all queued transactions as requiring card re-entry
+        transaction.requiresCardReentry = true;
+        transaction.status = 'failed';
+        transaction.error = 'Card re-entry required for security compliance';
+        transaction.updatedAt = now;
+        
+        await this.db.put('transactions', transaction);
+        
+        // Notify that card re-entry is required
+        this.notifyCardReentryRequired(transaction);
       }
     } catch (error) {
-      console.error('Queue processing failed:', error);
+      safeLogger.error('Queue processing failed:', error);
     } finally {
       this.isProcessing = false;
     }
   }
 
   /**
-   * Process a single transaction
+   * Notify that card re-entry is required
    */
-  private async processTransaction(transaction: QueuedTransaction): Promise<void> {
-    if (!this.db) return;
-
-    // Mark as processing
-    transaction.status = 'processing';
-    transaction.updatedAt = Date.now();
-    await this.db.put('transactions', transaction);
-
-    try {
-      // If we have encrypted card data, we need to tokenize first
-      if (transaction.encryptedCardData) {
-        // TODO: Implement deferred tokenization
-        // This would decrypt the card data and tokenize it
-        // For now, we'll mark it as failed
-        throw new Error('Deferred tokenization not implemented');
-      }
-
-      // Process the charge using the payment provider
-      const { createPaymentProvider } = await import('../payments/provider');
-      const provider = createPaymentProvider();
-      
-      const result = await provider.charge(transaction.request);
-
-      if (result.status === 'succeeded') {
-        // Mark as completed
-        transaction.status = 'completed';
-        transaction.updatedAt = Date.now();
-        await this.db.put('transactions', transaction);
-
-        // Notify success
-        this.notifyTransactionComplete(transaction, result);
-      } else {
-        throw new Error(result.errorMessage || 'Charge failed');
-      }
-    } catch (error) {
-      await this.handleTransactionError(transaction, error as Error);
-    }
-  }
-
-  /**
-   * Handle transaction processing errors
-   */
-  private async handleTransactionError(transaction: QueuedTransaction, error: Error): Promise<void> {
-    if (!this.db) return;
-
-    transaction.attempts += 1;
-    transaction.error = error.message;
-    transaction.updatedAt = Date.now();
-
-    if (transaction.attempts >= transaction.maxAttempts) {
-      // Mark as permanently failed
-      transaction.status = 'failed';
-      this.notifyTransactionFailed(transaction, error);
-    } else {
-      // Schedule retry with exponential backoff
-      const backoffMs = Math.min(1000 * Math.pow(2, transaction.attempts), 300000); // Max 5 minutes
-      transaction.nextRetry = Date.now() + backoffMs;
-      transaction.status = 'pending';
-    }
-
-    await this.db.put('transactions', transaction);
-  }
-
-  /**
-   * Notify transaction completion
-   */
-  private notifyTransactionComplete(transaction: QueuedTransaction, result: ChargeResponse): void {
-    // Dispatch custom event for UI updates
-    window.dispatchEvent(new CustomEvent('offline-transaction-complete', {
-      detail: { transaction, result }
-    }));
-  }
-
-  /**
-   * Notify transaction failure
-   */
-  private notifyTransactionFailed(transaction: QueuedTransaction, error: Error): void {
-    // Dispatch custom event for UI updates
-    window.dispatchEvent(new CustomEvent('offline-transaction-failed', {
-      detail: { transaction, error }
+  private notifyCardReentryRequired(transaction: QueuedTransaction): void {
+    window.dispatchEvent(new CustomEvent('card-reentry-required', {
+      detail: { transaction }
     }));
   }
 
   /**
    * Clear completed transactions older than specified days
    */
-  async cleanup(olderThanDays: number = 7): Promise<void> {
+  async cleanup(olderThanDays: number = 1): Promise<void> {
     if (!this.db) return;
 
     const cutoffTime = Date.now() - (olderThanDays * 24 * 60 * 60 * 1000);
-    const completedTransactions = await this.db.getAllFromIndex('transactions', 'by-status', 'completed');
     
+    // Clean completed transactions
+    const completedTransactions = await this.db.getAllFromIndex('transactions', 'by-status', 'completed');
     for (const transaction of completedTransactions) {
       if (transaction.updatedAt < cutoffTime) {
         await this.db.delete('transactions', transaction.id);
+      }
+    }
+    
+    // Clean old payment intent drafts
+    const allDrafts = await this.db.getAll('payment_intents');
+    for (const draft of allDrafts) {
+      if (draft.createdAt < cutoffTime) {
+        await this.db.delete('payment_intents', draft.id);
       }
     }
   }
@@ -412,7 +326,6 @@ class OfflineQueueService {
       this.db = null;
     }
 
-    this.sessionKey = null;
     this.isProcessing = false;
   }
 }
@@ -437,20 +350,24 @@ export function useOfflineQueue() {
     // Listen for queue updates
     const handleTransactionComplete = () => updatePendingCount();
     const handleTransactionFailed = () => updatePendingCount();
+    const handleCardReentryRequired = () => updatePendingCount();
 
     window.addEventListener('offline-transaction-complete', handleTransactionComplete);
     window.addEventListener('offline-transaction-failed', handleTransactionFailed);
+    window.addEventListener('card-reentry-required', handleCardReentryRequired);
 
     return () => {
       window.removeEventListener('offline-transaction-complete', handleTransactionComplete);
       window.removeEventListener('offline-transaction-failed', handleTransactionFailed);
+      window.removeEventListener('card-reentry-required', handleCardReentryRequired);
     };
   }, []);
 
   return {
     pendingCount,
-    queueTransaction: offlineQueue.queueTransaction.bind(offlineQueue),
-    getQueuedTransactions: offlineQueue.getQueuedTransactions.bind(offlineQueue),
+    createPaymentIntentDraft: offlineQueue.createPaymentIntentDraft.bind(offlineQueue),
+    getPaymentIntentDrafts: offlineQueue.getPaymentIntentDrafts.bind(offlineQueue),
+    processPaymentIntentDraft: offlineQueue.processPaymentIntentDraft.bind(offlineQueue),
     processQueue: offlineQueue.processQueue.bind(offlineQueue),
   };
 }
